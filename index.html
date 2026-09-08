@@ -34,7 +34,8 @@
     }
     .status-title { font-size: 0.85rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 1px; }
     .timer { font-size: 2.8rem; font-weight: 700; margin: 8px 0; font-variant-numeric: tabular-nums; }
-    .timestamp { font-size: 0.9rem; color: var(--subtext); }
+    .timestamp-container { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; color: var(--subtext); }
+    .inline-edit-btn { background: none; border: none; color: var(--accent); font-size: 0.8rem; cursor: pointer; text-decoration: underline; }
 
     .week-summary-card {
       background: #252525;
@@ -132,7 +133,10 @@
     <div class="status-card">
       <div class="status-title" id="statusLabel">Status: Clocked Out</div>
       <div class="timer" id="timerDisplay">00:00:00</div>
-      <div class="timestamp" id="inTimeDisplay">Not clocked in</div>
+      <div class="timestamp-container">
+        <span id="inTimeDisplay">Not clocked in</span>
+        <button id="editActiveInBtn" class="inline-edit-btn" style="display: none;" onclick="editActiveClockIn()">Edit In-Time</button>
+      </div>
     </div>
 
     <!-- Running Total for Monday-Sunday Week -->
@@ -144,7 +148,7 @@
       <div class="val" id="weekHoursDisplay">0.00 hrs</div>
     </div>
 
-    <!-- Location Selector with Add & Delete -->
+    <!-- Location Selector -->
     <div class="input-row">
       <select id="locationSelect">
         <option value="">-- Select Location --</option>
@@ -186,11 +190,29 @@
     let interval = null;
 
     function formatTime(ms) {
+      if (ms < 0) ms = 0;
       const totalSec = Math.floor(ms / 1000);
       const hrs = String(Math.floor(totalSec / 3600)).padStart(2, '0');
       const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
       const secs = String(totalSec % 60).padStart(2, '0');
       return `${hrs}:${mins}:${secs}`;
+    }
+
+    function formatTimeInputString(dateObj) {
+      const h = String(dateObj.getHours()).padStart(2, '0');
+      const m = String(dateObj.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+
+    function parseTimeInput(timeStr, baseDateObj) {
+      const parts = timeStr.split(':');
+      if (parts.length !== 2) return null;
+      const hours = parseInt(parts[0], 10);
+      const mins = parseInt(parts[1], 10);
+      if (isNaN(hours) || isNaN(mins) || hours < 0 || hours > 23 || mins < 0 || mins > 59) return null;
+      const d = new Date(baseDateObj);
+      d.setHours(hours, mins, 0, 0);
+      return d;
     }
 
     function getMondayStart(d) {
@@ -204,7 +226,6 @@
 
     function initLocations() {
       const select = document.getElementById('locationSelect');
-      // Automatically removes the old defaults if they were previously saved
       savedLocations = savedLocations.filter(loc => loc !== 'Headquarters' && loc !== 'Field');
       localStorage.setItem('savedLocations', JSON.stringify(savedLocations));
 
@@ -262,7 +283,7 @@
       });
 
       if (activeShift) {
-        totalMs += (Date.now() - activeShift.inTime);
+        totalMs += Math.max(0, Date.now() - activeShift.inTime);
       }
 
       const decHours = (totalMs / (1000 * 60 * 60)).toFixed(2);
@@ -272,6 +293,7 @@
     function updateUI() {
       const statusLabel = document.getElementById('statusLabel');
       const inTimeDisplay = document.getElementById('inTimeDisplay');
+      const editActiveInBtn = document.getElementById('editActiveInBtn');
       const toggleBtn = document.getElementById('toggleBtn');
       const notesField = document.getElementById('shiftNotes');
       const locSelect = document.getElementById('locationSelect');
@@ -280,6 +302,7 @@
         statusLabel.innerText = "Status: Clocked In";
         statusLabel.style.color = "var(--primary)";
         inTimeDisplay.innerText = `In: ${new Date(activeShift.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        editActiveInBtn.style.display = "inline";
         toggleBtn.innerText = "Clock Out";
         toggleBtn.className = "btn btn-out";
         if (activeShift.note) notesField.value = activeShift.note;
@@ -288,6 +311,7 @@
         statusLabel.innerText = "Status: Clocked Out";
         statusLabel.style.color = "var(--subtext)";
         inTimeDisplay.innerText = "Not clocked in";
+        editActiveInBtn.style.display = "none";
         document.getElementById('timerDisplay').innerText = "00:00:00";
         toggleBtn.innerText = "Clock In";
         toggleBtn.className = "btn btn-in";
@@ -301,11 +325,27 @@
       if (interval) clearInterval(interval);
       if (activeShift) {
         interval = setInterval(() => {
-          const diff = Date.now() - activeShift.inTime;
+          const diff = Math.max(0, Date.now() - activeShift.inTime);
           document.getElementById('timerDisplay').innerText = formatTime(diff);
           calculateWeekHours();
         }, 1000);
       }
+    }
+
+    function editActiveClockIn() {
+      if (!activeShift) return;
+      const currentIn = new Date(activeShift.inTime);
+      const promptVal = prompt("Edit Clock In time (24hr format HH:MM, e.g. 08:30 or 14:15):", formatTimeInputString(currentIn));
+      if (promptVal === null) return;
+
+      const newDate = parseTimeInput(promptVal.trim(), currentIn);
+      if (!newDate) {
+        alert("Invalid time format. Please use HH:MM (e.g. 09:15).");
+        return;
+      }
+      activeShift.inTime = newDate.getTime();
+      localStorage.setItem('activeShift', JSON.stringify(activeShift));
+      updateUI();
     }
 
     function handlePunch() {
@@ -323,7 +363,7 @@
         startTimer();
       } else {
         const outTime = now;
-        const totalDuration = outTime - activeShift.inTime;
+        const totalDuration = Math.max(0, outTime - activeShift.inTime);
         const entry = {
           id: Date.now().toString(),
           inTimestamp: activeShift.inTime,
@@ -371,13 +411,43 @@
     function editShift(id) {
       const s = shiftHistory.find(item => item.id === id);
       if (!s) return;
-      const newLoc = prompt("Update Location/Site:", s.location || "");
+
+      const inDate = new Date(s.inTimestamp);
+      const outDate = new Date(s.outTimestamp);
+
+      const inPrompt = prompt("Clock In time (HH:MM):", formatTimeInputString(inDate));
+      if (inPrompt === null) return;
+      const parsedIn = parseTimeInput(inPrompt.trim(), inDate);
+      if (!parsedIn) return alert("Invalid In-Time format.");
+
+      const outPrompt = prompt("Clock Out time (HH:MM):", formatTimeInputString(outDate));
+      if (outPrompt === null) return;
+      let parsedOut = parseTimeInput(outPrompt.trim(), outDate);
+      if (!parsedOut) return alert("Invalid Out-Time format.");
+
+      // Handle overnight shift edge case
+      if (parsedOut.getTime() < parsedIn.getTime()) {
+        parsedOut.setDate(parsedOut.getDate() + 1);
+      }
+
+      const newLoc = prompt("Location/Site:", s.location || "");
       if (newLoc !== null) s.location = newLoc.trim();
-      const newNote = prompt("Update Notes:", s.note || "");
+
+      const newNote = prompt("Notes:", s.note || "");
       if (newNote !== null) s.note = newNote.trim();
 
+      s.inTimestamp = parsedIn.getTime();
+      s.outTimestamp = parsedOut.getTime();
+      s.date = parsedIn.toLocaleDateString();
+      s.in = parsedIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      s.out = parsedOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const diff = s.outTimestamp - s.inTimestamp;
+      s.duration = formatTime(diff);
+      s.hoursDecimal = (diff / (1000 * 60 * 60)).toFixed(2);
+
       localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
-      renderHistory();
+      updateUI();
     }
 
     function deleteShift(id) {
