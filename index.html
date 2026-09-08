@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Time Tracker</title>
+
+  <!-- Hides browser address bars -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#121212" />
+
+  <!-- App settings -->
+  <link rel="manifest" href="data:application/manifest+json;utf-8,%7B%22name%22%3A%22Time%20Tracker%22%2C%22short_name%22%3A%22Tracker%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23121212%22%2C%22theme_color%22%3A%22%23121212%22%7D" />
+
   <style>
     :root {
       --bg: #121212;
@@ -220,7 +229,6 @@
       a.click();
     }
 
-    // Auto-save note while clocked in
     document.getElementById('shiftNotes').addEventListener('input', (e) => {
       if (activeShift) {
         activeShift.note = e.target.value;
