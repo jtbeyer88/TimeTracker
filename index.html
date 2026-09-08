@@ -181,7 +181,7 @@
 
     let activeShift = JSON.parse(localStorage.getItem('activeShift')) || null;
     let shiftHistory = JSON.parse(localStorage.getItem('shiftHistory')) || [];
-    let savedLocations = JSON.parse(localStorage.getItem('savedLocations')) || ['Headquarters', 'Field'];
+    let savedLocations = JSON.parse(localStorage.getItem('savedLocations')) || [];
     let interval = null;
 
     function formatTime(ms) {
