@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Time Tracker</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --card-bg: #1e1e1e;
+      --primary: #4caf50;
+      --danger: #f44336;
+      --text: #ffffff;
+      --subtext: #aaaaaa;
+      --accent: #2196f3;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 480px; }
+    
+    .status-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .status-title { font-size: 0.9rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 1px; }
+    .timer { font-size: 2.8rem; font-weight: 700; margin: 12px 0; font-variant-numeric: tabular-nums; }
+    .timestamp { font-size: 0.95rem; color: var(--subtext); }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: opacity 0.2s;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-in { background-color: var(--primary); }
+    .btn-out { background-color: var(--danger); }
+
+    .input-group { margin-bottom: 15px; }
+    textarea {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: var(--text);
+      padding: 12px;
+      font-size: 0.95rem;
+      resize: vertical;
+      min-height: 70px;
+    }
+    textarea:focus { outline: 1px solid var(--accent); }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 20px 0 10px 0;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+    }
+    .export-btn {
+      background: none;
+      border: 1px solid #444;
+      color: var(--subtext);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .log-item {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+    .log-top { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; }
+    .log-sub { color: var(--subtext); font-size: 0.8rem; margin-bottom: 6px; }
+    .log-note { font-style: italic; color: #ddd; background: #282828; padding: 6px 10px; border-radius: 4px; }
+    .empty-state { text-align: center; color: var(--subtext); font-size: 0.9rem; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="status-card">
+      <div class="status-title" id="statusLabel">Status: Clocked Out</div>
+      <div class="timer" id="timerDisplay">00:00:00</div>
+      <div class="timestamp" id="inTimeDisplay">Not clocked in</div>
+    </div>
+
+    <div class="input-group">
+      <textarea id="shiftNotes" placeholder="Add shift notes here..."></textarea>
+    </div>
+
+    <button id="toggleBtn" class="btn btn-in" onclick="handlePunch()">Clock In</button>
+
+    <div class="history-header">
+      <h3>Shift History</h3>
+      <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+    </div>
+    
+    <div id="shiftLogs"></div>
+  </div>
+
+  <script>
+    let activeShift = JSON.parse(localStorage.getItem('activeShift')) || null;
+    let shiftHistory = JSON.parse(localStorage.getItem('shiftHistory')) || [];
+    let interval = null;
+
+    function formatTime(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const hrs = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+      const secs = String(totalSec % 60).padStart(2, '0');
+      return `${hrs}:${mins}:${secs}`;
+    }
+
+    function updateUI() {
+      const statusLabel = document.getElementById('statusLabel');
+      const inTimeDisplay = document.getElementById('inTimeDisplay');
+      const toggleBtn = document.getElementById('toggleBtn');
+      const notesField = document.getElementById('shiftNotes');
+
+      if (activeShift) {
+        statusLabel.innerText = "Status: Clocked In";
+        statusLabel.style.color = "var(--primary)";
+        inTimeDisplay.innerText = `In: ${new Date(activeShift.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        toggleBtn.innerText = "Clock Out";
+        toggleBtn.className = "btn btn-out";
+        if (activeShift.note) notesField.value = activeShift.note;
+      } else {
+        statusLabel.innerText = "Status: Clocked Out";
+        statusLabel.style.color = "var(--subtext)";
+        inTimeDisplay.innerText = "Not clocked in";
+        document.getElementById('timerDisplay').innerText = "00:00:00";
+        toggleBtn.innerText = "Clock In";
+        toggleBtn.className = "btn btn-in";
+        notesField.value = "";
+      }
+      renderHistory();
+    }
+
+    function startTimer() {
+      if (interval) clearInterval(interval);
+      if (activeShift) {
+        interval = setInterval(() => {
+          const diff = Date.now() - activeShift.inTime;
+          document.getElementById('timerDisplay').innerText = formatTime(diff);
+        }, 1000);
+      }
+    }
+
+    function handlePunch() {
+      const notesField = document.getElementById('shiftNotes');
+      const now = Date.now();
+
+      if (!activeShift) {
+        activeShift = { inTime: now, note: notesField.value.trim() };
+        localStorage.setItem('activeShift', JSON.stringify(activeShift));
+        startTimer();
+      } else {
+        const outTime = now;
+        const totalDuration = outTime - activeShift.inTime;
+        const entry = {
+          date: new Date(activeShift.inTime).toLocaleDateString(),
+          in: new Date(activeShift.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          out: new Date(outTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          duration: formatTime(totalDuration),
+          note: notesField.value.trim()
+        };
+        shiftHistory.unshift(entry);
+        localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
+        localStorage.removeItem('activeShift');
+        activeShift = null;
+        clearInterval(interval);
+      }
+      updateUI();
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('shiftLogs');
+      if (shiftHistory.length === 0) {
+        container.innerHTML = `<div class="empty-state">No completed shifts yet.</div>`;
+        return;
+      }
+      container.innerHTML = shiftHistory.map(shift => `
+        <div class="log-item">
+          <div class="log-top">
+            <span>${shift.date}</span>
+            <span>${shift.duration}</span>
+          </div>
+          <div class="log-sub">${shift.in} – ${shift.out}</div>
+          ${shift.note ? `<div class="log-note">${shift.note}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function exportCSV() {
+      if (shiftHistory.length === 0) return alert("No shifts to export.");
+      let csv = "Date,In,Out,Duration,Notes\n";
+      shiftHistory.forEach(s => {
+        csv += `"${s.date}","${s.in}","${s.out}","${s.duration}","${(s.note || '').replace(/"/g, '""')}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `shifts_${new Date().toISOString().slice(0,10)}.csv`);
+      a.click();
+    }
+
+    // Auto-save note while clocked in
+    document.getElementById('shiftNotes').addEventListener('input', (e) => {
+      if (activeShift) {
+        activeShift.note = e.target.value;
+        localStorage.setItem('activeShift', JSON.stringify(activeShift));
+      }
+    });
+
+    updateUI();
+    if (activeShift) startTimer();
+  </script>
+</body>
+</html>
