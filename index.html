@@ -18,6 +18,7 @@
       --text: #ffffff;
       --subtext: #aaaaaa;
       --accent: #2196f3;
+      --border: #333333;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding: 16px; display: flex; flex-direction: column; align-items: center; }
@@ -26,14 +27,49 @@
     .status-card {
       background: var(--card-bg);
       border-radius: 12px;
-      padding: 24px;
+      padding: 20px;
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    .status-title { font-size: 0.9rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 1px; }
-    .timer { font-size: 2.8rem; font-weight: 700; margin: 12px 0; font-variant-numeric: tabular-nums; }
-    .timestamp { font-size: 0.95rem; color: var(--subtext); }
+    .status-title { font-size: 0.85rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 1px; }
+    .timer { font-size: 2.8rem; font-weight: 700; margin: 8px 0; font-variant-numeric: tabular-nums; }
+    .timestamp { font-size: 0.9rem; color: var(--subtext); }
+
+    .week-summary-card {
+      background: #252525;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .week-summary-card .label { font-size: 0.85rem; color: var(--subtext); }
+    .week-summary-card .val { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
+
+    .input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    select, input, textarea {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 12px;
+      font-size: 0.95rem;
+    }
+    select { flex: 1; outline: none; }
+    .btn-small {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    textarea { width: 100%; resize: vertical; min-height: 60px; margin-bottom: 16px; outline: none; }
+    textarea:focus, select:focus { border-color: var(--accent); }
 
     .btn {
       width: 100%;
@@ -45,39 +81,25 @@
       color: #fff;
       cursor: pointer;
       margin-bottom: 20px;
-      transition: opacity 0.2s;
     }
     .btn:active { opacity: 0.8; }
     .btn-in { background-color: var(--primary); }
     .btn-out { background-color: var(--danger); }
-
-    .input-group { margin-bottom: 15px; }
-    textarea {
-      width: 100%;
-      background: var(--card-bg);
-      border: 1px solid #333;
-      border-radius: 8px;
-      color: var(--text);
-      padding: 12px;
-      font-size: 0.95rem;
-      resize: vertical;
-      min-height: 70px;
-    }
-    textarea:focus { outline: 1px solid var(--accent); }
 
     .history-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin: 20px 0 10px 0;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid var(--border);
       padding-bottom: 8px;
     }
+    .export-row { display: flex; gap: 6px; }
     .export-btn {
       background: none;
-      border: 1px solid #444;
+      border: 1px solid var(--border);
       color: var(--subtext);
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
       font-size: 0.8rem;
       cursor: pointer;
@@ -88,44 +110,78 @@
       border-radius: 8px;
       padding: 14px;
       margin-bottom: 10px;
-      font-size: 0.9rem;
+      border: 1px solid #2a2a2a;
     }
     .log-top { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; }
     .log-sub { color: var(--subtext); font-size: 0.8rem; margin-bottom: 6px; }
-    .log-note { font-style: italic; color: #ddd; background: #282828; padding: 6px 10px; border-radius: 4px; }
-    .empty-state { text-align: center; color: var(--subtext); font-size: 0.9rem; margin-top: 20px; }
+    .log-tag { display: inline-block; background: #2d3748; color: #90cdf4; font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; }
+    .log-note { font-style: italic; color: #ddd; background: #252525; padding: 6px 10px; border-radius: 4px; font-size: 0.85rem; }
+    .log-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 12px; }
+    .action-btn { background: none; border: none; font-size: 0.8rem; cursor: pointer; }
+    .action-edit { color: var(--accent); }
+    .action-del { color: var(--danger); }
+
+    .empty-state { text-align: center; color: var(--subtext); font-size: 0.9rem; margin: 20px 0; }
+    .danger-zone { margin-top: 40px; padding-top: 15px; border-top: 1px dashed #333; text-align: center; }
+    .btn-archive { background: none; border: 1px solid #552222; color: #ff8888; padding: 8px 16px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
   </style>
 </head>
 <body>
   <div class="container">
+    
     <div class="status-card">
       <div class="status-title" id="statusLabel">Status: Clocked Out</div>
       <div class="timer" id="timerDisplay">00:00:00</div>
       <div class="timestamp" id="inTimeDisplay">Not clocked in</div>
     </div>
 
-    <div class="input-group">
-      <textarea id="shiftNotes" placeholder="Add shift notes here..."></textarea>
+    <!-- Running Total for Monday-Sunday Week -->
+    <div class="week-summary-card">
+      <div>
+        <div class="label">Current Week (Mon–Sun)</div>
+        <div style="font-size: 0.75rem; color: #888;" id="weekRangeLabel"></div>
+      </div>
+      <div class="val" id="weekHoursDisplay">0.00 hrs</div>
     </div>
 
+    <!-- Location Selector -->
+    <div class="input-row">
+      <select id="locationSelect">
+        <option value="">-- Select Location --</option>
+      </select>
+      <button class="btn-small" onclick="addNewLocation()">+ Add</button>
+    </div>
+
+    <!-- Shift Notes -->
+    <textarea id="shiftNotes" placeholder="Shift notes..."></textarea>
+
+    <!-- Clock In/Out Button -->
     <button id="toggleBtn" class="btn btn-in" onclick="handlePunch()">Clock In</button>
 
+    <!-- Shift History & Export Controls -->
     <div class="history-header">
       <h3>Shift History</h3>
-      <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+      <div class="export-row">
+        <button class="export-btn" onclick="exportCSV('current')">Export Week</button>
+        <button class="export-btn" onclick="exportCSV('all')">Export All</button>
+      </div>
     </div>
     
     <div id="shiftLogs"></div>
+
+    <div class="danger-zone">
+      <button class="btn-archive" onclick="archiveAndClear()">Archive & Clear History</button>
+    </div>
   </div>
 
   <script>
-    // Register Service Worker to allow full app install
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
 
     let activeShift = JSON.parse(localStorage.getItem('activeShift')) || null;
     let shiftHistory = JSON.parse(localStorage.getItem('shiftHistory')) || [];
+    let savedLocations = JSON.parse(localStorage.getItem('savedLocations')) || ['Headquarters', 'Field'];
     let interval = null;
 
     function formatTime(ms) {
@@ -136,11 +192,70 @@
       return `${hrs}:${mins}:${secs}`;
     }
 
+    function getMondayStart(d) {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+      const mon = new Date(date.setDate(diff));
+      mon.setHours(0, 0, 0, 0);
+      return mon;
+    }
+
+    function initLocations() {
+      const select = document.getElementById('locationSelect');
+      select.innerHTML = '<option value="">-- No Location --</option>';
+      savedLocations.forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = loc;
+        opt.innerText = loc;
+        select.appendChild(opt);
+      });
+    }
+
+    function addNewLocation() {
+      const name = prompt("Enter new location/site name:");
+      if (name && name.trim()) {
+        const clean = name.trim();
+        if (!savedLocations.includes(clean)) {
+          savedLocations.push(clean);
+          localStorage.setItem('savedLocations', JSON.stringify(savedLocations));
+          initLocations();
+        }
+        document.getElementById('locationSelect').value = clean;
+      }
+    }
+
+    function calculateWeekHours() {
+      const now = new Date();
+      const monStart = getMondayStart(now);
+      const sunEnd = new Date(monStart);
+      sunEnd.setDate(sunEnd.getDate() + 6);
+      sunEnd.setHours(23, 59, 59, 999);
+
+      document.getElementById('weekRangeLabel').innerText = 
+        `${monStart.toLocaleDateString([], {month:'numeric', day:'numeric'})} - ${sunEnd.toLocaleDateString([], {month:'numeric', day:'numeric'})}`;
+
+      let totalMs = 0;
+      shiftHistory.forEach(s => {
+        if (s.inTimestamp >= monStart.getTime() && s.inTimestamp <= sunEnd.getTime()) {
+          totalMs += (s.outTimestamp - s.inTimestamp);
+        }
+      });
+
+      if (activeShift) {
+        totalMs += (Date.now() - activeShift.inTime);
+      }
+
+      const decHours = (totalMs / (1000 * 60 * 60)).toFixed(2);
+      document.getElementById('weekHoursDisplay').innerText = `${decHours} hrs`;
+    }
+
     function updateUI() {
       const statusLabel = document.getElementById('statusLabel');
       const inTimeDisplay = document.getElementById('inTimeDisplay');
       const toggleBtn = document.getElementById('toggleBtn');
       const notesField = document.getElementById('shiftNotes');
+      const locSelect = document.getElementById('locationSelect');
 
       if (activeShift) {
         statusLabel.innerText = "Status: Clocked In";
@@ -149,6 +264,7 @@
         toggleBtn.innerText = "Clock Out";
         toggleBtn.className = "btn btn-out";
         if (activeShift.note) notesField.value = activeShift.note;
+        if (activeShift.location) locSelect.value = activeShift.location;
       } else {
         statusLabel.innerText = "Status: Clocked Out";
         statusLabel.style.color = "var(--subtext)";
@@ -158,6 +274,7 @@
         toggleBtn.className = "btn btn-in";
         notesField.value = "";
       }
+      calculateWeekHours();
       renderHistory();
     }
 
@@ -167,26 +284,37 @@
         interval = setInterval(() => {
           const diff = Date.now() - activeShift.inTime;
           document.getElementById('timerDisplay').innerText = formatTime(diff);
+          calculateWeekHours();
         }, 1000);
       }
     }
 
     function handlePunch() {
       const notesField = document.getElementById('shiftNotes');
+      const locSelect = document.getElementById('locationSelect');
       const now = Date.now();
 
       if (!activeShift) {
-        activeShift = { inTime: now, note: notesField.value.trim() };
+        activeShift = {
+          inTime: now,
+          note: notesField.value.trim(),
+          location: locSelect.value
+        };
         localStorage.setItem('activeShift', JSON.stringify(activeShift));
         startTimer();
       } else {
         const outTime = now;
         const totalDuration = outTime - activeShift.inTime;
         const entry = {
+          id: Date.now().toString(),
+          inTimestamp: activeShift.inTime,
+          outTimestamp: outTime,
           date: new Date(activeShift.inTime).toLocaleDateString(),
           in: new Date(activeShift.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           out: new Date(outTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           duration: formatTime(totalDuration),
+          hoursDecimal: ((totalDuration) / (1000 * 60 * 60)).toFixed(2),
+          location: locSelect.value || activeShift.location || '',
           note: notesField.value.trim()
         };
         shiftHistory.unshift(entry);
@@ -201,33 +329,81 @@
     function renderHistory() {
       const container = document.getElementById('shiftLogs');
       if (shiftHistory.length === 0) {
-        container.innerHTML = `<div class="empty-state">No completed shifts yet.</div>`;
+        container.innerHTML = `<div class="empty-state">No recorded shifts.</div>`;
         return;
       }
       container.innerHTML = shiftHistory.map(shift => `
-        <div class="log-item">
+        <div class="log-item" id="item-${shift.id}">
           <div class="log-top">
             <span>${shift.date}</span>
-            <span>${shift.duration}</span>
+            <span>${shift.duration} (${shift.hoursDecimal || '0.00'} hrs)</span>
           </div>
           <div class="log-sub">${shift.in} – ${shift.out}</div>
+          ${shift.location ? `<div class="log-tag">${shift.location}</div>` : ''}
           ${shift.note ? `<div class="log-note">${shift.note}</div>` : ''}
+          <div class="log-actions">
+            <button class="action-btn action-edit" onclick="editShift('${shift.id}')">Edit</button>
+            <button class="action-btn action-del" onclick="deleteShift('${shift.id}')">Delete</button>
+          </div>
         </div>
       `).join('');
     }
 
-    function exportCSV() {
+    function editShift(id) {
+      const s = shiftHistory.find(item => item.id === id);
+      if (!s) return;
+      const newLoc = prompt("Update Location/Site:", s.location || "");
+      if (newLoc !== null) s.location = newLoc.trim();
+      const newNote = prompt("Update Notes:", s.note || "");
+      if (newNote !== null) s.note = newNote.trim();
+
+      localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
+      renderHistory();
+    }
+
+    function deleteShift(id) {
+      if (confirm("Are you sure you want to delete this shift entry?")) {
+        shiftHistory = shiftHistory.filter(item => item.id !== id);
+        localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
+        updateUI();
+      }
+    }
+
+    function exportCSV(scope) {
       if (shiftHistory.length === 0) return alert("No shifts to export.");
-      let csv = "Date,In,Out,Duration,Notes\n";
-      shiftHistory.forEach(s => {
-        csv += `"${s.date}","${s.in}","${s.out}","${s.duration}","${(s.note || '').replace(/"/g, '""')}"\n`;
+      
+      let rows = shiftHistory;
+      let filename = "all_shifts";
+
+      if (scope === 'current') {
+        const monStart = getMondayStart(new Date()).getTime();
+        rows = shiftHistory.filter(s => s.inTimestamp >= monStart);
+        filename = "current_week_shifts";
+        if (rows.length === 0) return alert("No shifts logged for the current week yet.");
+      }
+
+      let csv = "Date,Location,Clock In,Clock Out,Duration,Decimal Hours,Notes\n";
+      rows.forEach(s => {
+        csv += `"${s.date}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${s.duration}","${s.hoursDecimal || ''}","${(s.note || '').replace(/"/g, '""')}"\n`;
       });
+
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.setAttribute('href', url);
-      a.setAttribute('download', `shifts_${new Date().toISOString().slice(0,10)}.csv`);
+      a.setAttribute('download', `${filename}_${new Date().toISOString().slice(0,10)}.csv`);
       a.click();
+    }
+
+    function archiveAndClear() {
+      if (shiftHistory.length === 0) return alert("Shift history is already empty.");
+      const answer = confirm("This will download a full CSV backup and clear your shift history from this device. Proceed?");
+      if (answer) {
+        exportCSV('all');
+        shiftHistory = [];
+        localStorage.removeItem('shiftHistory');
+        updateUI();
+      }
     }
 
     document.getElementById('shiftNotes').addEventListener('input', (e) => {
@@ -237,6 +413,14 @@
       }
     });
 
+    document.getElementById('locationSelect').addEventListener('change', (e) => {
+      if (activeShift) {
+        activeShift.location = e.target.value;
+        localStorage.setItem('activeShift', JSON.stringify(activeShift));
+      }
+    });
+
+    initLocations();
     updateUI();
     if (activeShift) startTimer();
   </script>
