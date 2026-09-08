@@ -63,7 +63,7 @@
       background: var(--card-bg);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 0 14px;
+      padding: 0 12px;
       border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
@@ -144,12 +144,13 @@
       <div class="val" id="weekHoursDisplay">0.00 hrs</div>
     </div>
 
-    <!-- Location Selector -->
+    <!-- Location Selector with Add & Delete -->
     <div class="input-row">
       <select id="locationSelect">
         <option value="">-- Select Location --</option>
       </select>
       <button class="btn-small" onclick="addNewLocation()">+ Add</button>
+      <button class="btn-small" style="color: var(--danger);" onclick="removeCurrentLocation()">– Del</button>
     </div>
 
     <!-- Shift Notes -->
@@ -203,7 +204,11 @@
 
     function initLocations() {
       const select = document.getElementById('locationSelect');
-      select.innerHTML = '<option value="">-- No Location --</option>';
+      // Automatically removes the old defaults if they were previously saved
+      savedLocations = savedLocations.filter(loc => loc !== 'Headquarters' && loc !== 'Field');
+      localStorage.setItem('savedLocations', JSON.stringify(savedLocations));
+
+      select.innerHTML = '<option value="">-- Select Location --</option>';
       savedLocations.forEach(loc => {
         const opt = document.createElement('option');
         opt.value = loc;
@@ -222,6 +227,20 @@
           initLocations();
         }
         document.getElementById('locationSelect').value = clean;
+      }
+    }
+
+    function removeCurrentLocation() {
+      const select = document.getElementById('locationSelect');
+      const selected = select.value;
+      if (!selected) {
+        alert("Please choose a location from the dropdown first to delete it.");
+        return;
+      }
+      if (confirm(`Delete "${selected}" from your saved locations list?`)) {
+        savedLocations = savedLocations.filter(loc => loc !== selected);
+        localStorage.setItem('savedLocations', JSON.stringify(savedLocations));
+        initLocations();
       }
     }
 
