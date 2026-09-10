@@ -621,7 +621,10 @@
 
     function parseCustomDate(inputStr, fallbackObj) {
       if (!inputStr) return fallbackObj;
-      const s = inputStr.trim();
+      let s = inputStr.trim();
+
+      s = s.replace(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday),?\s*/i, '');
+
       if (s.includes('/')) {
         const parts = s.split('/');
         if (parts.length >= 2) {
@@ -632,6 +635,11 @@
           if (!isNaN(parsed.getTime())) return parsed;
         }
       }
+
+      if (!/\d{4}/.test(s)) {
+        s = `${s}, ${fallbackObj.getFullYear()}`;
+      }
+
       const parsed = new Date(s);
       return isNaN(parsed.getTime()) ? fallbackObj : parsed;
     }
@@ -712,13 +720,11 @@
       return d;
     }
 
-    // Auto-complete location by shortcut/first letters
     function matchLocationShortcut(inputStr) {
       if (!inputStr) return "";
       const s = inputStr.trim();
       const lower = s.toLowerCase();
 
-      // Explicit requested prefix rules
       if (lower === 'pa') return "Palmetto Place";
       if (lower === 'pr') return "Presidential Place";
       if (lower === 'h') return "Home/Office";
@@ -726,7 +732,6 @@
       if (lower === 'w') return "Waterview Towers";
       if (lower === 'm') return "Mizner Tower";
 
-      // Match against dynamically saved locations
       const directMatch = savedLocations.find(loc => loc.toLowerCase().startsWith(lower));
       if (directMatch) return directMatch;
 
@@ -769,7 +774,6 @@
       const select = document.getElementById('locationSelect');
       savedLocations = savedLocations.filter(loc => loc !== 'Headquarters' && loc !== 'Field');
 
-      // Ensure standard locations exist in list
       const defaults = ["Home/Office", "Palmetto Place", "Presidential Place", "Tower 155", "Waterview Towers", "Mizner Tower"];
       defaults.forEach(d => {
         if (!savedLocations.includes(d)) savedLocations.push(d);
@@ -998,7 +1002,6 @@
 
     function manuallyAddShift() {
       const today = new Date();
-      // Default set to today's date formatted as words
       const defaultDateStr = formatDayDate(today);
       const datePrompt = prompt("Shift Date (Press OK for today, or edit):", defaultDateStr);
       if (datePrompt === null) return;
@@ -1018,7 +1021,7 @@
         parsedOut.setDate(parsedOut.getDate() + 1);
       }
 
-      const locInput = prompt("Location/Site shortcut or name:\n(h = Home/Office, pa = Palmetto Place, pr = Presidential Place, t = Tower 155, w = Waterview Towers, m = Mizner Tower)", "");
+      const locInput = prompt("Location/Site shortcut or name:\n(h, pa, pr, t, w, m)", "");
       if (locInput === null) return;
       const resolvedLocation = matchLocationShortcut(locInput);
 
@@ -1054,7 +1057,8 @@
         return;
       }
 
-      const sortedShifts = [...shiftHistory].sort((a, b) => a.inTimestamp - b.inTimestamp);
+      // Sorted descending (newest / most recent shift first)
+      const sortedShifts = [...shiftHistory].sort((a, b) => b.inTimestamp - a.inTimestamp);
 
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
