@@ -180,8 +180,17 @@
   </div>
 
   <script>
+    let swRegistration = null;
+
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        swRegistration = reg;
+      });
+      navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.action === 'trigger_clock_out') {
+          if (activeShift) handlePunch();
+        }
+      });
     }
 
     let activeShift = JSON.parse(localStorage.getItem('activeShift')) || null;
@@ -198,18 +207,29 @@
       return `${hrs}:${mins}:${secs}`;
     }
 
-    function formatTimeInputString(dateObj) {
-      const h = String(dateObj.getHours()).padStart(2, '0');
-      const m = String(dateObj.getMinutes()).padStart(2, '0');
-      return `${h}:${m}`;
+    // 12-Hour format string helper (e.g. "8:30 AM")
+    function formatTime12(dateObj) {
+      return dateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
-    function parseTimeInput(timeStr, baseDateObj) {
-      const parts = timeStr.split(':');
-      if (parts.length !== 2) return null;
-      const hours = parseInt(parts[0], 10);
-      const mins = parseInt(parts[1], 10);
-      if (isNaN(hours) || isNaN(mins) || hours < 0 || hours > 23 || mins < 0 || mins > 59) return null;
+    // Parse 12-hour input (e.g. "8:30 am" or "1:15 PM")
+    function parseTime12Input(timeStr, baseDateObj) {
+      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+      if (!match) return null;
+      let hours = parseInt(match[1], 10);
+      const mins = parseInt(match[2], 10);
+      const ampm = match[3] ? match[3].toLowerCase() : null;
+
+      if (mins < 0 || mins > 59) return null;
+
+      if (ampm) {
+        if (hours < 1 || hours > 12) return null;
+        if (ampm === 'pm' && hours < 12) hours += 12;
+        if (ampm === 'am' && hours === 12) hours = 0;
+      } else {
+        if (hours < 0 || hours > 23) return null;
+      }
+
       const d = new Date(baseDateObj);
       d.setHours(hours, mins, 0, 0);
       return d;
@@ -290,6 +310,31 @@
       document.getElementById('weekHoursDisplay').innerText = `${decHours} hrs`;
     }
 
+    async function updateNotification(durationStr) {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const reg = swRegistration || await navigator.serviceWorker.ready;
+      if (!reg) return;
+
+      if (activeShift) {
+        const inStr = formatTime12(new Date(activeShift.inTime));
+        const loc = activeShift.location ? ` • ${activeShift.location}` : '';
+        reg.showNotification(`Time Tracker: ${durationStr}`, {
+          body: `Clocked In at ${inStr}${loc}\nTap to open app`,
+          tag: 'active-shift-timer',
+          renotify: false,
+          silent: true,
+          requireInteraction: true,
+          icon: 'https://cdn-icons-png.flaticon.com/512/2972/2972531.png',
+          actions: [
+            { action: 'clock_out', title: 'Clock Out' }
+          ]
+        });
+      } else {
+        const notifs = await reg.getNotifications({ tag: 'active-shift-timer' });
+        notifs.forEach(n => n.close());
+      }
+    }
+
     function updateUI() {
       const statusLabel = document.getElementById('statusLabel');
       const inTimeDisplay = document.getElementById('inTimeDisplay');
@@ -301,7 +346,7 @@
       if (activeShift) {
         statusLabel.innerText = "Status: Clocked In";
         statusLabel.style.color = "var(--primary)";
-        inTimeDisplay.innerText = `In: ${new Date(activeShift.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        inTimeDisplay.innerText = `In: ${formatTime12(new Date(activeShift.inTime))}`;
         editActiveInBtn.style.display = "inline";
         toggleBtn.innerText = "Clock Out";
         toggleBtn.className = "btn btn-out";
@@ -316,6 +361,7 @@
         toggleBtn.innerText = "Clock In";
         toggleBtn.className = "btn btn-in";
         notesField.value = "";
+        updateNotification("");
       }
       calculateWeekHours();
       renderHistory();
@@ -326,8 +372,10 @@
       if (activeShift) {
         interval = setInterval(() => {
           const diff = Math.max(0, Date.now() - activeShift.inTime);
-          document.getElementById('timerDisplay').innerText = formatTime(diff);
+          const dur = formatTime(diff);
+          document.getElementById('timerDisplay').innerText = dur;
           calculateWeekHours();
+          updateNotification(dur);
         }, 1000);
       }
     }
@@ -335,12 +383,12 @@
     function editActiveClockIn() {
       if (!activeShift) return;
       const currentIn = new Date(activeShift.inTime);
-      const promptVal = prompt("Edit Clock In time (24hr format HH:MM, e.g. 08:30 or 14:15):", formatTimeInputString(currentIn));
+      const promptVal = prompt("Edit Clock In time (12-hour format, e.g. 8:30 AM or 1:15 PM):", formatTime12(currentIn));
       if (promptVal === null) return;
 
-      const newDate = parseTimeInput(promptVal.trim(), currentIn);
+      const newDate = parseTime12Input(promptVal, currentIn);
       if (!newDate) {
-        alert("Invalid time format. Please use HH:MM (e.g. 09:15).");
+        alert("Invalid time format. Please enter as 8:30 AM or 1:15 PM.");
         return;
       }
       activeShift.inTime = newDate.getTime();
@@ -348,12 +396,15 @@
       updateUI();
     }
 
-    function handlePunch() {
+    async function handlePunch() {
       const notesField = document.getElementById('shiftNotes');
       const locSelect = document.getElementById('locationSelect');
       const now = Date.now();
 
       if (!activeShift) {
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
         activeShift = {
           inTime: now,
           note: notesField.value.trim(),
@@ -369,8 +420,8 @@
           inTimestamp: activeShift.inTime,
           outTimestamp: outTime,
           date: new Date(activeShift.inTime).toLocaleDateString(),
-          in: new Date(activeShift.inTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          out: new Date(outTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          in: formatTime12(new Date(activeShift.inTime)),
+          out: formatTime12(new Date(outTime)),
           duration: formatTime(totalDuration),
           hoursDecimal: ((totalDuration) / (1000 * 60 * 60)).toFixed(2),
           location: locSelect.value || activeShift.location || '',
@@ -415,17 +466,16 @@
       const inDate = new Date(s.inTimestamp);
       const outDate = new Date(s.outTimestamp);
 
-      const inPrompt = prompt("Clock In time (HH:MM):", formatTimeInputString(inDate));
+      const inPrompt = prompt("Clock In time (e.g. 8:30 AM):", formatTime12(inDate));
       if (inPrompt === null) return;
-      const parsedIn = parseTimeInput(inPrompt.trim(), inDate);
-      if (!parsedIn) return alert("Invalid In-Time format.");
+      const parsedIn = parseTime12Input(inPrompt, inDate);
+      if (!parsedIn) return alert("Invalid In-Time format. Use e.g. 8:30 AM or 1:15 PM.");
 
-      const outPrompt = prompt("Clock Out time (HH:MM):", formatTimeInputString(outDate));
+      const outPrompt = prompt("Clock Out time (e.g. 5:00 PM):", formatTime12(outDate));
       if (outPrompt === null) return;
-      let parsedOut = parseTimeInput(outPrompt.trim(), outDate);
-      if (!parsedOut) return alert("Invalid Out-Time format.");
+      let parsedOut = parseTime12Input(outPrompt, outDate);
+      if (!parsedOut) return alert("Invalid Out-Time format. Use e.g. 5:00 PM.");
 
-      // Handle overnight shift edge case
       if (parsedOut.getTime() < parsedIn.getTime()) {
         parsedOut.setDate(parsedOut.getDate() + 1);
       }
@@ -439,8 +489,8 @@
       s.inTimestamp = parsedIn.getTime();
       s.outTimestamp = parsedOut.getTime();
       s.date = parsedIn.toLocaleDateString();
-      s.in = parsedIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      s.out = parsedOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      s.in = formatTime12(parsedIn);
+      s.out = formatTime12(parsedOut);
 
       const diff = s.outTimestamp - s.inTimestamp;
       s.duration = formatTime(diff);
@@ -508,6 +558,13 @@
         localStorage.setItem('activeShift', JSON.stringify(activeShift));
       }
     });
+
+    // Check URL parameters for direct clock out from notification
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'clock_out' && activeShift) {
+      handlePunch();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     initLocations();
     updateUI();
