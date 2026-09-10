@@ -2,32 +2,30 @@ self.addEventListener('fetch', function(event) {
   event.respondWith(fetch(event.request));
 });
 
-// Handle notification interaction (tapping the notification or the Clock Out button)
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
-  if (event.action === 'clock_out') {
-    // Broadcast message to any open client or queue it to clock out
-    event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-        if (clientList.length > 0) {
-          clientList[0].postMessage({ action: 'trigger_clock_out' });
-          return clientList[0].focus();
-        } else {
-          return self.clients.openWindow('./index.html?action=clock_out');
+  const isClockOut = (event.action === 'clock_out');
+  const targetUrl = isClockOut 
+    ? 'https://jtbeyer88.github.io/TimeTracker/?action=clock_out' 
+    : 'https://jtbeyer88.github.io/TimeTracker/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      // If the app is already open in memory, focus it
+      for (let i = 0; i < clientList.length; i++) {
+        let client = clientList[i];
+        if (client.url.includes('TimeTracker') && 'focus' in client) {
+          if (isClockOut) {
+            client.postMessage({ action: 'trigger_clock_out' });
+          }
+          return client.focus();
         }
-      })
-    );
-  } else {
-    // Tapping the body of the notification opens/focuses the app
-    event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-        for (let i = 0; i < clientList.length; i++) {
-          let client = clientList[i];
-          if ('focus' in client) return client.focus();
-        }
-        if (self.clients.openWindow) return self.clients.openWindow('./index.html');
-      })
-    );
-  }
+      }
+      // If the app was closed or discarded, launch a fresh window directly to the app
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
 });
