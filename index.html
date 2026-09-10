@@ -92,12 +92,9 @@
     .top-bar h2 { font-size: 1.15rem; font-weight: 700; letter-spacing: 0.5px; }
     .btn-icon { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--subtext); }
 
-    /* Tab navigation bottom bar */
     .bottom-nav {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      bottom: 0; left: 0; right: 0;
       height: 64px;
       background: var(--nav-bg);
       border-top: 1px solid var(--border);
@@ -109,29 +106,18 @@
       margin: 0 auto;
     }
     .nav-tab {
-      flex: 1;
-      height: 100%;
-      background: none;
-      border: none;
+      flex: 1; height: 100%;
+      background: none; border: none;
       color: var(--subtext);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: color 0.2s;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; font-size: 0.75rem; font-weight: 600; cursor: pointer;
     }
     .nav-tab .tab-icon { font-size: 1.25rem; }
     .nav-tab.active { color: var(--primary); }
 
-    /* Tab content view containers */
     .tab-content { display: none; width: 100%; }
     .tab-content.active { display: block; }
 
-    /* Punch Tab UI elements */
     .status-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -141,8 +127,9 @@
       margin-bottom: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
+    .date-display { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
     .status-title { font-size: 0.85rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-    .timer { font-size: 3rem; font-weight: 700; margin: 8px 0; font-variant-numeric: tabular-nums; }
+    .timer { font-size: 3rem; font-weight: 700; margin: 6px 0; font-variant-numeric: tabular-nums; }
     .timestamp-container { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; color: var(--subtext); }
     .inline-edit-btn { background: none; border: none; color: var(--accent); font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
 
@@ -196,11 +183,10 @@
     .btn-in { background-color: var(--primary); }
     .btn-out { background-color: var(--danger); }
 
-    /* History and Summary elements */
     .section-title {
       font-size: 1.1rem;
       font-weight: 700;
-      margin: 10px 0 14px 0;
+      margin: 12px 0;
       border-bottom: 1px solid var(--border);
       padding-bottom: 8px;
       display: flex;
@@ -223,7 +209,6 @@
     .action-edit { color: var(--accent); }
     .action-del { color: var(--danger); }
 
-    /* Summary cards & stats */
     .breakdown-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -239,12 +224,6 @@
       font-size: 0.9rem;
     }
     .breakdown-row:last-child { border-bottom: none; }
-    .export-card-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 10px;
-    }
     .btn-action-wide {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -254,12 +233,12 @@
       cursor: pointer;
       font-weight: 600;
       font-size: 0.95rem;
+      width: 100%;
       text-align: center;
+      margin-bottom: 10px;
     }
-    .btn-action-wide:active { opacity: 0.8; }
     .empty-state { text-align: center; color: var(--subtext); font-size: 0.9rem; margin: 30px 0; }
 
-    /* Settings Modal */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -276,6 +255,8 @@
       border-radius: 14px;
       width: 100%;
       max-width: 440px;
+      max-height: 90vh;
+      overflow-y: auto;
       padding: 20px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
@@ -298,7 +279,6 @@
     .setting-label { font-size: 0.95rem; font-weight: 500; }
     .setting-desc { font-size: 0.75rem; color: var(--subtext); margin-top: 2px; }
 
-    /* Switch toggle */
     .switch { position: relative; display: inline-block; width: 46px; height: 26px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
@@ -323,15 +303,15 @@
 <body data-theme="dark">
   <div class="container">
     
-    <!-- Top Header -->
     <div class="top-bar">
-      <h2 id="appTitle">Time Tracker</h2>
+      <h2>Time Tracker</h2>
       <button class="btn-icon" onclick="openSettings()" title="Settings">⚙️</button>
     </div>
 
-    <!-- TAB 1: PUNCH (Matches user screenshot) -->
+    <!-- TAB 1: CLOCK -->
     <div id="tabPunch" class="tab-content active">
       <div class="status-card">
+        <div class="date-display" id="currentDateDisplay"></div>
         <div class="status-title" id="statusLabel">Status: Clocked Out</div>
         <div class="timer" id="timerDisplay">00:00:00</div>
         <div class="timestamp-container">
@@ -365,40 +345,48 @@
     <div id="tabHistory" class="tab-content">
       <div class="section-title">
         <span>Shift History</span>
+        <span style="font-size: 0.8rem; color: var(--subtext);">Ascending</span>
       </div>
       <div id="shiftLogs"></div>
     </div>
 
-    <!-- TAB 3: SUMMARY & REPORTS -->
+    <!-- TAB 3: SUMMARY -->
     <div id="tabSummary" class="tab-content">
       <div class="section-title">
-        <span>Week Overview</span>
-        <span id="summaryWeekTotal" style="color: var(--primary); font-size: 1rem;">0.00 hrs</span>
+        <span>Current Week</span>
+        <span id="summaryCurrentWeekTotal" style="color: var(--primary); font-size: 1rem;">0.00 hrs</span>
       </div>
 
       <div class="breakdown-card">
-        <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; color: var(--subtext);">HOURS BY LOCATION (THIS WEEK)</div>
-        <div id="locationBreakdown"></div>
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.85rem; color: var(--subtext);">HOURS BY LOCATION (CURRENT WEEK)</div>
+        <div id="currentLocationBreakdown"></div>
       </div>
 
       <div class="breakdown-card">
-        <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; color: var(--subtext);">DAILY BREAKDOWN (THIS WEEK)</div>
-        <div id="dailyBreakdown"></div>
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.85rem; color: var(--subtext);">DAILY BREAKDOWN (CURRENT WEEK)</div>
+        <div id="currentDailyBreakdown"></div>
       </div>
 
+      <!-- PREVIOUS WEEK SECTION -->
       <div class="section-title" style="margin-top: 24px;">
-        <span>Exports & Backup</span>
+        <span>Previous Week</span>
+        <span id="summaryPrevWeekTotal" style="color: var(--subtext); font-size: 1rem;">0.00 hrs</span>
       </div>
-      <div class="export-card-actions">
-        <button class="btn-action-wide" onclick="exportCSV('current')">Export Current Week (CSV)</button>
-        <button class="btn-action-wide" onclick="exportCSV('all')">Export Full History (CSV)</button>
-        <button class="btn-action-wide" style="border-color: #552222; color: #ff8888; margin-top: 10px;" onclick="archiveAndClear()">Archive & Clear History</button>
+
+      <div class="breakdown-card">
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.85rem; color: var(--subtext);">HOURS BY LOCATION (PREVIOUS WEEK)</div>
+        <div id="prevLocationBreakdown"></div>
+      </div>
+
+      <div class="breakdown-card">
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.85rem; color: var(--subtext);">DAILY BREAKDOWN (PREVIOUS WEEK)</div>
+        <div id="prevDailyBreakdown"></div>
       </div>
     </div>
 
   </div>
 
-  <!-- Bottom Tab Navigation Bar -->
+  <!-- Bottom Navigation -->
   <nav class="bottom-nav">
     <button class="nav-tab active" onclick="switchTab('tabPunch', this)">
       <span class="tab-icon">⏱️</span>
@@ -414,15 +402,27 @@
     </button>
   </nav>
 
-  <!-- Settings Modal Overlay -->
+  <!-- Settings Modal (Now housing Exports & Backup) -->
   <div class="modal-overlay" id="settingsModal" onclick="overlayClick(event)">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Settings</h3>
+        <h3>Settings & Exports</h3>
         <button class="btn-icon" onclick="closeSettings()">✕</button>
       </div>
 
-      <!-- Display Mode -->
+      <!-- Exports & Backup moved here -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 10px;">Exports & Backup</div>
+        <button class="btn-action-wide" onclick="exportCSV('current')">Export Current Week (CSV)</button>
+        <button class="btn-action-wide" onclick="exportCSV('prev')">Export Previous Week (CSV)</button>
+        <button class="btn-action-wide" onclick="exportCSV('all')">Export Full History (CSV)</button>
+        <button class="btn-action-wide" style="border-color: #552222; color: #ff8888;" onclick="archiveAndClear()">Archive & Clear History</button>
+      </div>
+
+      <div class="modal-header" style="margin-top: 10px;">
+        <h3>Preferences</h3>
+      </div>
+
       <div class="setting-item">
         <div>
           <div class="setting-label">Display Mode</div>
@@ -436,7 +436,6 @@
         </select>
       </div>
 
-      <!-- Decimal vs Standard Time -->
       <div class="setting-item">
         <div>
           <div class="setting-label">Decimal Hours Display</div>
@@ -448,7 +447,6 @@
         </label>
       </div>
 
-      <!-- Persistent Notification Toggle -->
       <div class="setting-item">
         <div>
           <div class="setting-label">Notification Shade Timer</div>
@@ -460,7 +458,6 @@
         </label>
       </div>
 
-      <!-- 4-Hour Reminder -->
       <div class="setting-item">
         <div>
           <div class="setting-label">4-Hour Clock Out Reminder</div>
@@ -472,7 +469,6 @@
         </label>
       </div>
 
-      <!-- Confirm Punch Out -->
       <div class="setting-item">
         <div>
           <div class="setting-label">Confirm Clock Out</div>
@@ -500,7 +496,6 @@
       });
     }
 
-    // Default Settings
     let appSettings = JSON.parse(localStorage.getItem('appSettings')) || {
       theme: 'dark',
       showDecimal: true,
@@ -588,6 +583,10 @@
       return `${hrs}h ${mins}m`;
     }
 
+    function formatDayDate(dateObj) {
+      return dateObj.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+
     function formatTime12(dateObj) {
       return dateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     }
@@ -621,6 +620,33 @@
       const mon = new Date(date.setDate(diff));
       mon.setHours(0, 0, 0, 0);
       return mon;
+    }
+
+    // Auto-Archive check: Every Sunday night at 12:00 Midnight
+    function checkSundayMidnightArchive() {
+      const now = new Date();
+      const currentMonStart = getMondayStart(now).getTime();
+      const lastArchivedMon = parseInt(localStorage.getItem('lastArchivedMon') || '0', 10);
+
+      // If we crossed into a new week and haven't archived the past week's items
+      if (lastArchivedMon !== 0 && currentMonStart > lastArchivedMon) {
+        const pastWeekShifts = shiftHistory.filter(s => s.inTimestamp < currentMonStart);
+        if (pastWeekShifts.length > 0) {
+          // Automatically save backup file internally
+          let archivedWeeks = JSON.parse(localStorage.getItem('archivedWeeks') || '[]');
+          archivedWeeks.push({
+            archivedAt: new Date().toISOString(),
+            weekStart: lastArchivedMon,
+            shifts: pastWeekShifts
+          });
+          localStorage.setItem('archivedWeeks', JSON.stringify(archivedWeeks));
+
+          // Clear history of the past week, keeping active week
+          shiftHistory = shiftHistory.filter(s => s.inTimestamp >= currentMonStart);
+          localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
+        }
+      }
+      localStorage.setItem('lastArchivedMon', currentMonStart.toString());
     }
 
     function initLocations() {
@@ -671,6 +697,7 @@
       sunEnd.setDate(sunEnd.getDate() + 6);
       sunEnd.setHours(23, 59, 59, 999);
 
+      document.getElementById('currentDateDisplay').innerText = formatDayDate(now);
       document.getElementById('weekRangeLabel').innerText = 
         `${monStart.toLocaleDateString([], {month:'numeric', day:'numeric'})} - ${sunEnd.toLocaleDateString([], {month:'numeric', day:'numeric'})}`;
 
@@ -685,17 +712,10 @@
         totalMs += Math.max(0, Date.now() - activeShift.inTime);
       }
 
-      if (appSettings.showDecimal) {
-        const decHours = (totalMs / (1000 * 60 * 60)).toFixed(2);
-        document.getElementById('weekHoursDisplay').innerText = `${decHours} hrs`;
-        const summaryTotal = document.getElementById('summaryWeekTotal');
-        if (summaryTotal) summaryTotal.innerText = `${decHours} hrs`;
-      } else {
-        const std = formatStandardDuration(totalMs);
-        document.getElementById('weekHoursDisplay').innerText = std;
-        const summaryTotal = document.getElementById('summaryWeekTotal');
-        if (summaryTotal) summaryTotal.innerText = std;
-      }
+      const val = appSettings.showDecimal ? `${(totalMs / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(totalMs);
+      document.getElementById('weekHoursDisplay').innerText = val;
+      const summaryTotal = document.getElementById('summaryCurrentWeekTotal');
+      if (summaryTotal) summaryTotal.innerText = val;
     }
 
     async function checkFourHourReminder(diffMs) {
@@ -710,9 +730,7 @@
               tag: 'four-hour-reminder',
               icon: 'https://cdn-icons-png.flaticon.com/512/2972/2972531.png',
               requireInteraction: true,
-              actions: [
-                { action: 'clock_out', title: 'Clock Out' }
-              ]
+              actions: [ { action: 'clock_out', title: 'Clock Out' } ]
             });
           }
         }
@@ -735,9 +753,7 @@
           silent: true,
           requireInteraction: true,
           icon: 'https://cdn-icons-png.flaticon.com/512/2972/2972531.png',
-          actions: [
-            { action: 'clock_out', title: 'Clock Out' }
-          ]
+          actions: [ { action: 'clock_out', title: 'Clock Out' } ]
         });
       } else {
         const notifs = await reg.getNotifications({ tag: 'active-shift-timer' });
@@ -832,19 +848,21 @@
 
         const outTime = now;
         const totalDuration = Math.max(0, outTime - activeShift.inTime);
+        const inDate = new Date(activeShift.inTime);
+
         const entry = {
           id: Date.now().toString(),
           inTimestamp: activeShift.inTime,
           outTimestamp: outTime,
-          date: new Date(activeShift.inTime).toLocaleDateString(),
-          in: formatTime12(new Date(activeShift.inTime)),
+          date: formatDayDate(inDate),
+          in: formatTime12(inDate),
           out: formatTime12(new Date(outTime)),
           duration: formatTime(totalDuration),
           hoursDecimal: ((totalDuration) / (1000 * 60 * 60)).toFixed(2),
           location: locSelect.value || activeShift.location || '',
           note: notesField.value.trim()
         };
-        shiftHistory.unshift(entry);
+        shiftHistory.push(entry); // Stores chronologically
         localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
         localStorage.removeItem('activeShift');
         activeShift = null;
@@ -862,7 +880,11 @@
         container.innerHTML = `<div class="empty-state">No recorded shifts yet.</div>`;
         return;
       }
-      container.innerHTML = shiftHistory.map(shift => {
+
+      // Sorted strictly in ascending order (earliest shift first)
+      const sortedShifts = [...shiftHistory].sort((a, b) => a.inTimestamp - b.inTimestamp);
+
+      container.innerHTML = sortedShifts.map(shift => {
         const diffMs = (shift.outTimestamp && shift.inTimestamp) ? (shift.outTimestamp - shift.inTimestamp) : 0;
         const timeDisplay = appSettings.showDecimal 
           ? `${shift.hoursDecimal || '0.00'} hrs` 
@@ -887,63 +909,76 @@
     }
 
     function renderSummary() {
-      const locContainer = document.getElementById('locationBreakdown');
-      const dayContainer = document.getElementById('dailyBreakdown');
-      if (!locContainer || !dayContainer) return;
+      const currentLocContainer = document.getElementById('currentLocationBreakdown');
+      const currentDayContainer = document.getElementById('currentDailyBreakdown');
+      const prevLocContainer = document.getElementById('prevLocationBreakdown');
+      const prevDayContainer = document.getElementById('prevDailyBreakdown');
+      if (!currentLocContainer || !currentDayContainer) return;
 
       const now = new Date();
-      const monStart = getMondayStart(now).getTime();
-      const sunEnd = monStart + (7 * 24 * 60 * 60 * 1000) - 1;
+      const currentMonStart = getMondayStart(now).getTime();
+      const currentSunEnd = currentMonStart + (7 * 24 * 60 * 60 * 1000) - 1;
 
-      // Filter shifts for active week
+      const prevMonStart = currentMonStart - (7 * 24 * 60 * 60 * 1000);
+      const prevSunEnd = currentMonStart - 1;
+
+      // 1. Current Week Data
+      buildWeekBreakdown(currentMonStart, currentSunEnd, true, currentLocContainer, currentDayContainer, 'summaryCurrentWeekTotal');
+
+      // 2. Previous Week Data
+      buildWeekBreakdown(prevMonStart, prevSunEnd, false, prevLocContainer, prevDayContainer, 'summaryPrevWeekTotal');
+    }
+
+    function buildWeekBreakdown(monStart, sunEnd, includeActive, locContainer, dayContainer, totalElementId) {
       const weekShifts = shiftHistory.filter(s => s.inTimestamp >= monStart && s.inTimestamp <= sunEnd);
 
-      // Location Breakdown
       const locMap = {};
+      let totalMs = 0;
       weekShifts.forEach(s => {
         const loc = s.location || 'Unassigned';
         const ms = (s.outTimestamp - s.inTimestamp);
         locMap[loc] = (locMap[loc] || 0) + ms;
+        totalMs += ms;
       });
 
-      if (activeShift && activeShift.inTime >= monStart) {
+      if (includeActive && activeShift && activeShift.inTime >= monStart) {
         const loc = activeShift.location || 'Unassigned';
         const ms = Math.max(0, Date.now() - activeShift.inTime);
         locMap[loc] = (locMap[loc] || 0) + ms;
+        totalMs += ms;
       }
+
+      const totalVal = appSettings.showDecimal ? `${(totalMs / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(totalMs);
+      const totalEl = document.getElementById(totalElementId);
+      if (totalEl) totalEl.innerText = totalVal;
 
       const locKeys = Object.keys(locMap);
       if (locKeys.length === 0) {
-        locContainer.innerHTML = `<div style="color: var(--subtext); font-size: 0.85rem;">No activity this week.</div>`;
+        locContainer.innerHTML = `<div style="color: var(--subtext); font-size: 0.85rem;">No activity recorded.</div>`;
       } else {
         locContainer.innerHTML = locKeys.map(k => {
-          const val = appSettings.showDecimal 
-            ? `${(locMap[k] / (1000 * 60 * 60)).toFixed(2)} hrs` 
-            : formatStandardDuration(locMap[k]);
+          const val = appSettings.showDecimal ? `${(locMap[k] / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(locMap[k]);
           return `<div class="breakdown-row"><span>${k}</span><span style="font-weight: 600;">${val}</span></div>`;
         }).join('');
       }
 
-      // Daily Breakdown (Mon to Sun)
       const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       const dayMs = [0, 0, 0, 0, 0, 0, 0];
 
       weekShifts.forEach(s => {
         const d = new Date(s.inTimestamp).getDay();
-        const idx = (d === 0) ? 6 : d - 1; // Mon=0, Sun=6
+        const idx = (d === 0) ? 6 : d - 1;
         dayMs[idx] += (s.outTimestamp - s.inTimestamp);
       });
 
-      if (activeShift && activeShift.inTime >= monStart) {
+      if (includeActive && activeShift && activeShift.inTime >= monStart) {
         const d = new Date(activeShift.inTime).getDay();
         const idx = (d === 0) ? 6 : d - 1;
         dayMs[idx] += Math.max(0, Date.now() - activeShift.inTime);
       }
 
       dayContainer.innerHTML = days.map((dayName, i) => {
-        const val = appSettings.showDecimal 
-          ? `${(dayMs[i] / (1000 * 60 * 60)).toFixed(2)} hrs` 
-          : formatStandardDuration(dayMs[i]);
+        const val = appSettings.showDecimal ? `${(dayMs[i] / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(dayMs[i]);
         const style = dayMs[i] > 0 ? "font-weight: 600; color: var(--primary);" : "color: var(--subtext);";
         return `<div class="breakdown-row"><span>${dayName}</span><span style="${style}">${val}</span></div>`;
       }).join('');
@@ -978,7 +1013,7 @@
 
       s.inTimestamp = parsedIn.getTime();
       s.outTimestamp = parsedOut.getTime();
-      s.date = parsedIn.toLocaleDateString();
+      s.date = formatDayDate(parsedIn);
       s.in = formatTime12(parsedIn);
       s.out = formatTime12(parsedOut);
 
@@ -1003,17 +1038,23 @@
     }
 
     function exportCSV(scope) {
-      if (shiftHistory.length === 0) return alert("No shifts to export.");
-      
       let rows = shiftHistory;
       let filename = "all_shifts";
 
+      const currentMonStart = getMondayStart(new Date()).getTime();
+
       if (scope === 'current') {
-        const monStart = getMondayStart(new Date()).getTime();
-        rows = shiftHistory.filter(s => s.inTimestamp >= monStart);
+        rows = shiftHistory.filter(s => s.inTimestamp >= currentMonStart);
         filename = "current_week_shifts";
-        if (rows.length === 0) return alert("No shifts logged for the current week yet.");
+        if (rows.length === 0) return alert("No shifts logged for current week yet.");
+      } else if (scope === 'prev') {
+        const prevMonStart = currentMonStart - (7 * 24 * 60 * 60 * 1000);
+        rows = shiftHistory.filter(s => s.inTimestamp >= prevMonStart && s.inTimestamp < currentMonStart);
+        filename = "previous_week_shifts";
+        if (rows.length === 0) return alert("No shifts logged for previous week.");
       }
+
+      if (rows.length === 0) return alert("No shifts to export.");
 
       let csv = "Date,Location,Clock In,Clock Out,Duration,Decimal Hours,Notes\n";
       rows.forEach(s => {
@@ -1063,6 +1104,7 @@
 
     applyTheme();
     initLocations();
+    checkSundayMidnightArchive();
     updateUI();
     renderHistory();
     renderSummary();
