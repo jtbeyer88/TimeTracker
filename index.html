@@ -201,6 +201,7 @@
       border: 1px solid var(--border);
     }
     .log-top { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; }
+    .log-date { font-size: 0.95rem; font-weight: 700; color: var(--text); }
     .log-sub { color: var(--subtext); font-size: 0.8rem; margin-bottom: 6px; }
     .log-tag { display: inline-block; background: var(--tag-bg); color: var(--tag-text); font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; }
     .log-note { font-style: italic; color: var(--note-text); background: var(--note-bg); padding: 6px 10px; border-radius: 4px; font-size: 0.85rem; }
@@ -345,7 +346,6 @@
     <div id="tabHistory" class="tab-content">
       <div class="section-title">
         <span>Shift History</span>
-        <span style="font-size: 0.8rem; color: var(--subtext);">Ascending</span>
       </div>
       <div id="shiftLogs"></div>
     </div>
@@ -402,7 +402,7 @@
     </button>
   </nav>
 
-  <!-- Settings Modal (Now housing Exports & Backup) -->
+  <!-- Settings Modal -->
   <div class="modal-overlay" id="settingsModal" onclick="overlayClick(event)">
     <div class="modal-card">
       <div class="modal-header">
@@ -410,7 +410,6 @@
         <button class="btn-icon" onclick="closeSettings()">✕</button>
       </div>
 
-      <!-- Exports & Backup moved here -->
       <div style="margin-bottom: 16px;">
         <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 10px;">Exports & Backup</div>
         <button class="btn-action-wide" onclick="exportCSV('current')">Export Current Week (CSV)</button>
@@ -583,8 +582,23 @@
       return `${hrs}h ${mins}m`;
     }
 
+    // Converts date into full words: "Thursday, September 10"
     function formatDayDate(dateObj) {
       return dateObj.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+
+    function getFormattedEntryDate(shift) {
+      if (shift.inTimestamp) {
+        return formatDayDate(new Date(shift.inTimestamp));
+      }
+      if (shift.date) {
+        const parsed = new Date(shift.date);
+        if (!isNaN(parsed.getTime())) {
+          return formatDayDate(parsed);
+        }
+        return shift.date;
+      }
+      return '';
     }
 
     function formatTime12(dateObj) {
@@ -622,17 +636,14 @@
       return mon;
     }
 
-    // Auto-Archive check: Every Sunday night at 12:00 Midnight
     function checkSundayMidnightArchive() {
       const now = new Date();
       const currentMonStart = getMondayStart(now).getTime();
       const lastArchivedMon = parseInt(localStorage.getItem('lastArchivedMon') || '0', 10);
 
-      // If we crossed into a new week and haven't archived the past week's items
       if (lastArchivedMon !== 0 && currentMonStart > lastArchivedMon) {
         const pastWeekShifts = shiftHistory.filter(s => s.inTimestamp < currentMonStart);
         if (pastWeekShifts.length > 0) {
-          // Automatically save backup file internally
           let archivedWeeks = JSON.parse(localStorage.getItem('archivedWeeks') || '[]');
           archivedWeeks.push({
             archivedAt: new Date().toISOString(),
@@ -641,7 +652,6 @@
           });
           localStorage.setItem('archivedWeeks', JSON.stringify(archivedWeeks));
 
-          // Clear history of the past week, keeping active week
           shiftHistory = shiftHistory.filter(s => s.inTimestamp >= currentMonStart);
           localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
         }
@@ -862,7 +872,7 @@
           location: locSelect.value || activeShift.location || '',
           note: notesField.value.trim()
         };
-        shiftHistory.push(entry); // Stores chronologically
+        shiftHistory.push(entry);
         localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
         localStorage.removeItem('activeShift');
         activeShift = null;
@@ -881,7 +891,7 @@
         return;
       }
 
-      // Sorted strictly in ascending order (earliest shift first)
+      // Sorted ascending (earliest to latest)
       const sortedShifts = [...shiftHistory].sort((a, b) => a.inTimestamp - b.inTimestamp);
 
       container.innerHTML = sortedShifts.map(shift => {
@@ -890,10 +900,12 @@
           ? `${shift.hoursDecimal || '0.00'} hrs` 
           : formatStandardDuration(diffMs);
 
+        const displayDate = getFormattedEntryDate(shift);
+
         return `
           <div class="log-item" id="item-${shift.id}">
             <div class="log-top">
-              <span>${shift.date}</span>
+              <span class="log-date">${displayDate}</span>
               <span>${timeDisplay}</span>
             </div>
             <div class="log-sub">${shift.in} – ${shift.out}</div>
@@ -922,10 +934,7 @@
       const prevMonStart = currentMonStart - (7 * 24 * 60 * 60 * 1000);
       const prevSunEnd = currentMonStart - 1;
 
-      // 1. Current Week Data
       buildWeekBreakdown(currentMonStart, currentSunEnd, true, currentLocContainer, currentDayContainer, 'summaryCurrentWeekTotal');
-
-      // 2. Previous Week Data
       buildWeekBreakdown(prevMonStart, prevSunEnd, false, prevLocContainer, prevDayContainer, 'summaryPrevWeekTotal');
     }
 
@@ -1058,7 +1067,8 @@
 
       let csv = "Date,Location,Clock In,Clock Out,Duration,Decimal Hours,Notes\n";
       rows.forEach(s => {
-        csv += `"${s.date}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${s.duration}","${s.hoursDecimal || ''}","${(s.note || '').replace(/"/g, '""')}"\n`;
+        const entryDate = getFormattedEntryDate(s);
+        csv += `"${entryDate}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${s.duration}","${s.hoursDecimal || ''}","${(s.note || '').replace(/"/g, '""')}"\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv' });
