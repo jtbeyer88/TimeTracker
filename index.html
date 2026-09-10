@@ -582,9 +582,8 @@
       return `${hrs}h ${mins}m`;
     }
 
-    // Converts date into full words: "Thursday, September 10"
     function formatDayDate(dateObj) {
-      return dateObj.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+      return dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     }
 
     function getFormattedEntryDate(shift) {
@@ -592,6 +591,15 @@
         return formatDayDate(new Date(shift.inTimestamp));
       }
       if (shift.date) {
+        if (shift.date.includes('/')) {
+          const parts = shift.date.split('/');
+          if (parts.length === 3) {
+            const m = parseInt(parts[0], 10) - 1;
+            const d = parseInt(parts[1], 10);
+            const y = parseInt(parts[2], 10);
+            return formatDayDate(new Date(y, m, d));
+          }
+        }
         const parsed = new Date(shift.date);
         if (!isNaN(parsed.getTime())) {
           return formatDayDate(parsed);
@@ -891,7 +899,6 @@
         return;
       }
 
-      // Sorted ascending (earliest to latest)
       const sortedShifts = [...shiftHistory].sort((a, b) => a.inTimestamp - b.inTimestamp);
 
       container.innerHTML = sortedShifts.map(shift => {
