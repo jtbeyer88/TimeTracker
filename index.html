@@ -331,6 +331,30 @@
     }
     input:checked + .slider { background-color: var(--primary); }
     input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Changelog Readme Styles */
+    .readme-entry {
+      border-left: 3px solid var(--primary);
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+    .readme-time {
+      font-size: 0.75rem;
+      color: var(--subtext);
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+    .readme-title {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .readme-desc {
+      font-size: 0.8rem;
+      color: var(--subtext);
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body data-theme="dark">
@@ -511,6 +535,14 @@
           <span class="slider"></span>
         </label>
       </div>
+
+      <!-- README / CHANGELOG SECTION -->
+      <div class="modal-header" style="margin-top: 18px;">
+        <h3>README & Changelog</h3>
+        <span style="font-size: 0.75rem; color: var(--subtext);">Build History</span>
+      </div>
+
+      <div id="readmeList" style="padding-top: 8px;"></div>
     </div>
   </div>
 
@@ -542,6 +574,62 @@
     let interval = null;
     let reminderFired = false;
 
+    // CHANGELOG / README DATA
+    const changelogEntries = [
+      {
+        timestamp: "September 10, 2026 • 6:25 PM",
+        title: "15-Minute Upward Rounding",
+        desc: "All punch in/out timestamps and manual time entries now automatically round up to the nearest 15-minute mark (:00, :15, :30, :45) for payroll alignment."
+      },
+      {
+        timestamp: "September 10, 2026 • 5:10 PM",
+        title: "Descending Shift Order",
+        desc: "Changed History Tab order so newest/most recent shifts appear at the very top of the list."
+      },
+      {
+        timestamp: "September 10, 2026 • 4:30 PM",
+        title: "Manual Shift Entry & Location Shortcuts",
+        desc: "Added (+) button on History Tab. Enabled one-tap 'Today' date selection and instant location autocomplete (h, pa, pr, t, w, m)."
+      },
+      {
+        timestamp: "September 10, 2026 • 3:45 PM",
+        title: "Smart Time Parser & Today's Highlight",
+        desc: "Allowed flexible time shorthand entry (e.g. 0917, 917a, 2117). Added lighter gray card highlighting for current-day shifts."
+      },
+      {
+        timestamp: "September 10, 2026 • 2:00 PM",
+        title: "Date Formatting & Summary Tab Polish",
+        desc: "Standardized shift dates to words (Thursday, September 10), removed 'Ascending' badge, and added Previous Week breakdown beneath Current Week."
+      },
+      {
+        timestamp: "September 10, 2026 • 11:30 AM",
+        title: "3-Tab Navigation Architecture",
+        desc: "Restructured the app into Clock, History, and Summary tabs with a bottom navigation bar."
+      },
+      {
+        timestamp: "September 10, 2026 • 9:45 AM",
+        title: "Preferences Drawer & Theme Engine",
+        desc: "Created the Settings modal with High-Contrast Dark, AMOLED Pure Black, White, and System Default themes, plus the 4-hour alert."
+      },
+      {
+        timestamp: "September 08, 2026 • 8:00 AM",
+        title: "Initial PWA Release",
+        desc: "Basic punch in/out tracking, service worker background notifications, localStorage persistence, and custom site tagging."
+      }
+    ];
+
+    function renderChangelog() {
+      const container = document.getElementById('readmeList');
+      if (!container) return;
+      container.innerHTML = changelogEntries.map(entry => `
+        <div class="readme-entry">
+          <div class="readme-time">${entry.timestamp}</div>
+          <div class="readme-title">${entry.title}</div>
+          <div class="readme-desc">${entry.desc}</div>
+        </div>
+      `).join('');
+    }
+
     function switchTab(tabId, el) {
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
@@ -570,6 +658,7 @@
       document.getElementById('notificationToggle').checked = appSettings.enableNotification;
       document.getElementById('reminderToggle').checked = appSettings.fourHourReminder;
       document.getElementById('confirmToggle').checked = appSettings.confirmClockOut;
+      renderChangelog();
       document.getElementById('settingsModal').style.display = 'flex';
     }
 
@@ -596,6 +685,11 @@
       if (key === 'enableNotification' && !val) {
         updateNotification("");
       }
+    }
+
+    function roundUpTo15(timestamp) {
+      const ms15 = 15 * 60 * 1000;
+      return Math.ceil(timestamp / ms15) * ms15;
     }
 
     function formatTime(ms) {
@@ -717,7 +811,9 @@
 
       const d = new Date(baseDateObj);
       d.setHours(hours, mins, 0, 0);
-      return d;
+
+      const roundedMs = roundUpTo15(d.getTime());
+      return new Date(roundedMs);
     }
 
     function matchLocationShortcut(inputStr) {
@@ -961,7 +1057,7 @@
           await Notification.requestPermission();
         }
         activeShift = {
-          inTime: now,
+          inTime: roundUpTo15(now),
           note: notesField.value.trim(),
           location: locSelect.value
         };
@@ -973,7 +1069,11 @@
           if (!confirm("Are you sure you want to Clock Out?")) return;
         }
 
-        const outTime = now;
+        let outTime = roundUpTo15(now);
+        if (outTime < activeShift.inTime) {
+          outTime = activeShift.inTime;
+        }
+
         const totalDuration = Math.max(0, outTime - activeShift.inTime);
         const inDate = new Date(activeShift.inTime);
 
@@ -1057,7 +1157,6 @@
         return;
       }
 
-      // Sorted descending (newest / most recent shift first)
       const sortedShifts = [...shiftHistory].sort((a, b) => b.inTimestamp - a.inTimestamp);
 
       const startOfToday = new Date();
