@@ -619,10 +619,6 @@
       return dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     }
 
-    function formatDateInputPrompt(dateObj) {
-      return `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
-    }
-
     function parseCustomDate(inputStr, fallbackObj) {
       if (!inputStr) return fallbackObj;
       const s = inputStr.trim();
@@ -716,6 +712,27 @@
       return d;
     }
 
+    // Auto-complete location by shortcut/first letters
+    function matchLocationShortcut(inputStr) {
+      if (!inputStr) return "";
+      const s = inputStr.trim();
+      const lower = s.toLowerCase();
+
+      // Explicit requested prefix rules
+      if (lower === 'pa') return "Palmetto Place";
+      if (lower === 'pr') return "Presidential Place";
+      if (lower === 'h') return "Home/Office";
+      if (lower === 't') return "Tower 155";
+      if (lower === 'w') return "Waterview Towers";
+      if (lower === 'm') return "Mizner Tower";
+
+      // Match against dynamically saved locations
+      const directMatch = savedLocations.find(loc => loc.toLowerCase().startsWith(lower));
+      if (directMatch) return directMatch;
+
+      return s;
+    }
+
     function getMondayStart(d) {
       const date = new Date(d);
       const day = date.getDay();
@@ -751,6 +768,13 @@
     function initLocations() {
       const select = document.getElementById('locationSelect');
       savedLocations = savedLocations.filter(loc => loc !== 'Headquarters' && loc !== 'Field');
+
+      // Ensure standard locations exist in list
+      const defaults = ["Home/Office", "Palmetto Place", "Presidential Place", "Tower 155", "Waterview Towers", "Mizner Tower"];
+      defaults.forEach(d => {
+        if (!savedLocations.includes(d)) savedLocations.push(d);
+      });
+
       localStorage.setItem('savedLocations', JSON.stringify(savedLocations));
 
       select.innerHTML = '<option value="">-- Select Location --</option>';
@@ -974,7 +998,9 @@
 
     function manuallyAddShift() {
       const today = new Date();
-      const datePrompt = prompt("Shift Date (e.g. 9/10/2026 or Thursday, September 10):", formatDateInputPrompt(today));
+      // Default set to today's date formatted as words
+      const defaultDateStr = formatDayDate(today);
+      const datePrompt = prompt("Shift Date (Press OK for today, or edit):", defaultDateStr);
       if (datePrompt === null) return;
       const baseDate = parseCustomDate(datePrompt, today);
 
@@ -992,9 +1018,9 @@
         parsedOut.setDate(parsedOut.getDate() + 1);
       }
 
-      let defaultLoc = savedLocations.length > 0 ? savedLocations[0] : "";
-      const locPrompt = prompt("Location/Site name:", defaultLoc);
-      if (locPrompt === null) return;
+      const locInput = prompt("Location/Site shortcut or name:\n(h = Home/Office, pa = Palmetto Place, pr = Presidential Place, t = Tower 155, w = Waterview Towers, m = Mizner Tower)", "");
+      if (locInput === null) return;
+      const resolvedLocation = matchLocationShortcut(locInput);
 
       const notePrompt = prompt("Shift Notes (optional):", "");
       if (notePrompt === null) return;
@@ -1009,7 +1035,7 @@
         out: formatTime12(parsedOut),
         duration: formatTime(diff),
         hoursDecimal: (diff / (1000 * 60 * 60)).toFixed(2),
-        location: locPrompt.trim(),
+        location: resolvedLocation,
         note: notePrompt.trim()
       };
 
@@ -1142,7 +1168,7 @@
 
       const currentBaseDate = s.inTimestamp ? new Date(s.inTimestamp) : new Date();
 
-      const datePrompt = prompt("Shift Date (e.g. 9/10/2026 or Thursday, September 10):", formatDateInputPrompt(currentBaseDate));
+      const datePrompt = prompt("Shift Date (Press OK to keep, or edit):", formatDayDate(currentBaseDate));
       if (datePrompt === null) return;
       const baseDate = parseCustomDate(datePrompt, currentBaseDate);
 
@@ -1163,8 +1189,10 @@
         parsedOut.setDate(parsedOut.getDate() + 1);
       }
 
-      const newLoc = prompt("Location/Site:", s.location || "");
-      if (newLoc !== null) s.location = newLoc.trim();
+      const locPrompt = prompt("Location/Site shortcut or name:\n(h, pa, pr, t, w, m)", s.location || "");
+      if (locPrompt !== null) {
+        s.location = matchLocationShortcut(locPrompt);
+      }
 
       const newNote = prompt("Notes:", s.note || "");
       if (newNote !== null) s.note = newNote.trim();
