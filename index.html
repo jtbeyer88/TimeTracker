@@ -13,6 +13,8 @@
     :root {
       --bg: #121212;
       --card-bg: #1e1e1e;
+      --card-today: #2c2c2c;
+      --today-border: #444444;
       --border: #333333;
       --text: #ffffff;
       --subtext: #aaaaaa;
@@ -29,6 +31,8 @@
     body[data-theme="pure-black"] {
       --bg: #000000;
       --card-bg: #0d0d0d;
+      --card-today: #222222;
+      --today-border: #3a3a3a;
       --border: #222222;
       --text: #ffffff;
       --subtext: #888888;
@@ -39,6 +43,8 @@
     body[data-theme="white"] {
       --bg: #f4f6f8;
       --card-bg: #ffffff;
+      --card-today: #e8ecf0;
+      --today-border: #cbd5e1;
       --border: #e0e0e0;
       --text: #1a1a1a;
       --subtext: #666666;
@@ -53,6 +59,8 @@
       body[data-theme="system"] {
         --bg: #f4f6f8;
         --card-bg: #ffffff;
+        --card-today: #e8ecf0;
+        --today-border: #cbd5e1;
         --border: #e0e0e0;
         --text: #1a1a1a;
         --subtext: #666666;
@@ -68,6 +76,8 @@
       body[data-theme="system"] {
         --bg: #121212;
         --card-bg: #1e1e1e;
+        --card-today: #2c2c2c;
+        --today-border: #444444;
         --border: #333333;
         --text: #ffffff;
         --subtext: #aaaaaa;
@@ -199,6 +209,12 @@
       padding: 14px;
       margin-bottom: 10px;
       border: 1px solid var(--border);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .log-item.log-today {
+      background: var(--card-today);
+      border-color: var(--today-border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .log-top { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; }
     .log-date { font-size: 0.95rem; font-weight: 700; color: var(--text); }
@@ -613,15 +629,44 @@
       return dateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
-    function parseTime12Input(timeStr, baseDateObj) {
-      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
-      if (!match) return null;
-      let hours = parseInt(match[1], 10);
-      const mins = parseInt(match[2], 10);
-      const ampm = match[3] ? match[3].toLowerCase() : null;
+    // Flexible time parser: handles 0917, 2117, 917a, 917p, 9:17am, 130p, etc.
+    function parseTime12Input(rawInput, baseDateObj) {
+      if (!rawInput) return null;
+      let s = rawInput.trim().toLowerCase().replace(/\s+/g, '');
 
-      if (mins < 0 || mins > 59) return null;
+      let ampm = null;
+      if (s.endsWith('am')) { ampm = 'am'; s = s.slice(0, -2); }
+      else if (s.endsWith('pm')) { ampm = 'pm'; s = s.slice(0, -2); }
+      else if (s.endsWith('a')) { ampm = 'am'; s = s.slice(0, -1); }
+      else if (s.endsWith('p')) { ampm = 'pm'; s = s.slice(0, -1); }
 
+      let hours = null;
+      let mins = 0;
+
+      if (s.includes(':')) {
+        const parts = s.split(':');
+        if (parts.length === 2) {
+          hours = parseInt(parts[0], 10);
+          mins = parseInt(parts[1], 10);
+        }
+      } else if (/^\d+$/.test(s)) {
+        if (s.length === 1 || s.length === 2) {
+          hours = parseInt(s, 10);
+          mins = 0;
+        } else if (s.length === 3) {
+          hours = parseInt(s.substring(0, 1), 10);
+          mins = parseInt(s.substring(1), 10);
+        } else if (s.length === 4) {
+          hours = parseInt(s.substring(0, 2), 10);
+          mins = parseInt(s.substring(2), 10);
+        }
+      }
+
+      if (hours === null || isNaN(hours) || isNaN(mins) || mins < 0 || mins > 59) {
+        return null;
+      }
+
+      // Convert or validate AM/PM and 24-hr values
       if (ampm) {
         if (hours < 1 || hours > 12) return null;
         if (ampm === 'pm' && hours < 12) hours += 12;
@@ -828,12 +873,12 @@
     function editActiveClockIn() {
       if (!activeShift) return;
       const currentIn = new Date(activeShift.inTime);
-      const promptVal = prompt("Edit Clock In time (e.g. 8:30 AM or 1:15 PM):", formatTime12(currentIn));
+      const promptVal = prompt("Edit Clock In time (e.g. 0917, 917a, 2117, 9:17 AM):", formatTime12(currentIn));
       if (promptVal === null) return;
 
       const newDate = parseTime12Input(promptVal, currentIn);
       if (!newDate) {
-        alert("Invalid time format. Please enter as 8:30 AM or 1:15 PM.");
+        alert("Invalid time format. Examples: 0917, 917a, 2117, 9:17 am");
         return;
       }
       activeShift.inTime = newDate.getTime();
@@ -901,6 +946,12 @@
 
       const sortedShifts = [...shiftHistory].sort((a, b) => a.inTimestamp - b.inTimestamp);
 
+      // Determine today's boundaries for highlighting
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
       container.innerHTML = sortedShifts.map(shift => {
         const diffMs = (shift.outTimestamp && shift.inTimestamp) ? (shift.outTimestamp - shift.inTimestamp) : 0;
         const timeDisplay = appSettings.showDecimal 
@@ -909,8 +960,12 @@
 
         const displayDate = getFormattedEntryDate(shift);
 
+        // Check if shift falls within today
+        const isToday = shift.inTimestamp >= startOfToday.getTime() && shift.inTimestamp <= endOfToday.getTime();
+        const todayClass = isToday ? ' log-today' : '';
+
         return `
-          <div class="log-item" id="item-${shift.id}">
+          <div class="log-item${todayClass}" id="item-${shift.id}">
             <div class="log-top">
               <span class="log-date">${displayDate}</span>
               <span>${timeDisplay}</span>
@@ -1007,15 +1062,15 @@
       const inDate = new Date(s.inTimestamp);
       const outDate = new Date(s.outTimestamp);
 
-      const inPrompt = prompt("Clock In time (e.g. 8:30 AM):", formatTime12(inDate));
+      const inPrompt = prompt("Clock In time (e.g. 0917, 917a, 2117, 9:17 AM):", formatTime12(inDate));
       if (inPrompt === null) return;
       const parsedIn = parseTime12Input(inPrompt, inDate);
-      if (!parsedIn) return alert("Invalid In-Time format. Use e.g. 8:30 AM or 1:15 PM.");
+      if (!parsedIn) return alert("Invalid In-Time format. Examples: 0917, 917a, 2117, 9:17 am");
 
-      const outPrompt = prompt("Clock Out time (e.g. 5:00 PM):", formatTime12(outDate));
+      const outPrompt = prompt("Clock Out time (e.g. 1700, 500p, 5:00 PM):", formatTime12(outDate));
       if (outPrompt === null) return;
       let parsedOut = parseTime12Input(outPrompt, outDate);
-      if (!parsedOut) return alert("Invalid Out-Time format. Use e.g. 5:00 PM.");
+      if (!parsedOut) return alert("Invalid Out-Time format. Examples: 1700, 500p, 5:00 pm");
 
       if (parsedOut.getTime() < parsedIn.getTime()) {
         parsedOut.setDate(parsedOut.getDate() + 1);
