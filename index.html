@@ -269,6 +269,8 @@
       width: 100%;
       text-align: center;
       margin-bottom: 10px;
+      display: block;
+      text-decoration: none;
     }
     .empty-state { text-align: center; color: var(--subtext); font-size: 0.9rem; margin: 30px 0; }
 
@@ -331,30 +333,6 @@
     }
     input:checked + .slider { background-color: var(--primary); }
     input:checked + .slider:before { transform: translateX(20px); }
-
-    /* Changelog Readme Styles */
-    .readme-entry {
-      border-left: 3px solid var(--primary);
-      padding-left: 12px;
-      margin-bottom: 16px;
-    }
-    .readme-time {
-      font-size: 0.75rem;
-      color: var(--subtext);
-      margin-bottom: 2px;
-      font-weight: 600;
-    }
-    .readme-title {
-      font-size: 0.9rem;
-      font-weight: bold;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    .readme-desc {
-      font-size: 0.8rem;
-      color: var(--subtext);
-      line-height: 1.4;
-    }
   </style>
 </head>
 <body data-theme="dark">
@@ -536,13 +514,12 @@
         </label>
       </div>
 
-      <!-- README / CHANGELOG SECTION -->
-      <div class="modal-header" style="margin-top: 18px;">
-        <h3>README & Changelog</h3>
-        <span style="font-size: 0.75rem; color: var(--subtext);">Build History</span>
+      <!-- README LINK -->
+      <div style="margin-top: 20px;">
+        <a href="README.html" class="btn-action-wide" style="border-color: var(--primary); color: var(--primary);">
+          📖 View Build History & README
+        </a>
       </div>
-
-      <div id="readmeList" style="padding-top: 8px;"></div>
     </div>
   </div>
 
@@ -574,62 +551,6 @@
     let interval = null;
     let reminderFired = false;
 
-    // CHANGELOG / README DATA
-    const changelogEntries = [
-      {
-        timestamp: "September 10, 2026 • 6:25 PM",
-        title: "15-Minute Upward Rounding",
-        desc: "All punch in/out timestamps and manual time entries now automatically round up to the nearest 15-minute mark (:00, :15, :30, :45) for payroll alignment."
-      },
-      {
-        timestamp: "September 10, 2026 • 5:10 PM",
-        title: "Descending Shift Order",
-        desc: "Changed History Tab order so newest/most recent shifts appear at the very top of the list."
-      },
-      {
-        timestamp: "September 10, 2026 • 4:30 PM",
-        title: "Manual Shift Entry & Location Shortcuts",
-        desc: "Added (+) button on History Tab. Enabled one-tap 'Today' date selection and instant location autocomplete (h, pa, pr, t, w, m)."
-      },
-      {
-        timestamp: "September 10, 2026 • 3:45 PM",
-        title: "Smart Time Parser & Today's Highlight",
-        desc: "Allowed flexible time shorthand entry (e.g. 0917, 917a, 2117). Added lighter gray card highlighting for current-day shifts."
-      },
-      {
-        timestamp: "September 10, 2026 • 2:00 PM",
-        title: "Date Formatting & Summary Tab Polish",
-        desc: "Standardized shift dates to words (Thursday, September 10), removed 'Ascending' badge, and added Previous Week breakdown beneath Current Week."
-      },
-      {
-        timestamp: "September 10, 2026 • 11:30 AM",
-        title: "3-Tab Navigation Architecture",
-        desc: "Restructured the app into Clock, History, and Summary tabs with a bottom navigation bar."
-      },
-      {
-        timestamp: "September 10, 2026 • 9:45 AM",
-        title: "Preferences Drawer & Theme Engine",
-        desc: "Created the Settings modal with High-Contrast Dark, AMOLED Pure Black, White, and System Default themes, plus the 4-hour alert."
-      },
-      {
-        timestamp: "September 08, 2026 • 8:00 AM",
-        title: "Initial PWA Release",
-        desc: "Basic punch in/out tracking, service worker background notifications, localStorage persistence, and custom site tagging."
-      }
-    ];
-
-    function renderChangelog() {
-      const container = document.getElementById('readmeList');
-      if (!container) return;
-      container.innerHTML = changelogEntries.map(entry => `
-        <div class="readme-entry">
-          <div class="readme-time">${entry.timestamp}</div>
-          <div class="readme-title">${entry.title}</div>
-          <div class="readme-desc">${entry.desc}</div>
-        </div>
-      `).join('');
-    }
-
     function switchTab(tabId, el) {
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
@@ -658,7 +579,6 @@
       document.getElementById('notificationToggle').checked = appSettings.enableNotification;
       document.getElementById('reminderToggle').checked = appSettings.fourHourReminder;
       document.getElementById('confirmToggle').checked = appSettings.confirmClockOut;
-      renderChangelog();
       document.getElementById('settingsModal').style.display = 'flex';
     }
 
@@ -687,6 +607,12 @@
       }
     }
 
+    // Rounds milliseconds to clean 15-minute intervals
+    function roundTo15Minutes(ms) {
+      const ms15 = 15 * 60 * 1000;
+      return Math.round(ms / ms15) * ms15;
+    }
+
     function roundUpTo15(timestamp) {
       const ms15 = 15 * 60 * 1000;
       return Math.ceil(timestamp / ms15) * ms15;
@@ -703,7 +629,8 @@
 
     function formatStandardDuration(ms) {
       if (ms < 0) ms = 0;
-      const totalSec = Math.floor(ms / 1000);
+      const roundedMs = roundTo15Minutes(ms);
+      const totalSec = Math.floor(roundedMs / 1000);
       const hrs = Math.floor(totalSec / 3600);
       const mins = Math.floor((totalSec % 3600) / 60);
       return `${hrs}h ${mins}m`;
@@ -927,12 +854,13 @@
       let totalMs = 0;
       shiftHistory.forEach(s => {
         if (s.inTimestamp >= monStart.getTime() && s.inTimestamp <= sunEnd.getTime()) {
-          totalMs += (s.outTimestamp - s.inTimestamp);
+          const shiftDuration = s.outTimestamp - s.inTimestamp;
+          totalMs += roundTo15Minutes(shiftDuration);
         }
       });
 
       if (activeShift) {
-        totalMs += Math.max(0, Date.now() - activeShift.inTime);
+        totalMs += roundTo15Minutes(Math.max(0, Date.now() - activeShift.inTime));
       }
 
       const val = appSettings.showDecimal ? `${(totalMs / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(totalMs);
@@ -1074,7 +1002,8 @@
           outTime = activeShift.inTime;
         }
 
-        const totalDuration = Math.max(0, outTime - activeShift.inTime);
+        const rawDiff = Math.max(0, outTime - activeShift.inTime);
+        const totalDuration = roundTo15Minutes(rawDiff);
         const inDate = new Date(activeShift.inTime);
 
         const entry = {
@@ -1128,7 +1057,9 @@
       const notePrompt = prompt("Shift Notes (optional):", "");
       if (notePrompt === null) return;
 
-      const diff = parsedOut.getTime() - parsedIn.getTime();
+      const rawDiff = parsedOut.getTime() - parsedIn.getTime();
+      const roundedDiff = roundTo15Minutes(rawDiff);
+
       const entry = {
         id: Date.now().toString(),
         inTimestamp: parsedIn.getTime(),
@@ -1136,8 +1067,8 @@
         date: formatDayDate(parsedIn),
         in: formatTime12(parsedIn),
         out: formatTime12(parsedOut),
-        duration: formatTime(diff),
-        hoursDecimal: (diff / (1000 * 60 * 60)).toFixed(2),
+        duration: formatTime(roundedDiff),
+        hoursDecimal: (roundedDiff / (1000 * 60 * 60)).toFixed(2),
         location: resolvedLocation,
         note: notePrompt.trim()
       };
@@ -1165,9 +1096,11 @@
       endOfToday.setHours(23, 59, 59, 999);
 
       container.innerHTML = sortedShifts.map(shift => {
-        const diffMs = (shift.outTimestamp && shift.inTimestamp) ? (shift.outTimestamp - shift.inTimestamp) : 0;
+        const rawDiff = (shift.outTimestamp && shift.inTimestamp) ? (shift.outTimestamp - shift.inTimestamp) : 0;
+        const diffMs = roundTo15Minutes(rawDiff);
+
         const timeDisplay = appSettings.showDecimal 
-          ? `${shift.hoursDecimal || '0.00'} hrs` 
+          ? `${(diffMs / (1000 * 60 * 60)).toFixed(2)} hrs` 
           : formatStandardDuration(diffMs);
 
         const displayDate = getFormattedEntryDate(shift);
@@ -1217,14 +1150,14 @@
       let totalMs = 0;
       weekShifts.forEach(s => {
         const loc = s.location || 'Unassigned';
-        const ms = (s.outTimestamp - s.inTimestamp);
+        const ms = roundTo15Minutes(s.outTimestamp - s.inTimestamp);
         locMap[loc] = (locMap[loc] || 0) + ms;
         totalMs += ms;
       });
 
       if (includeActive && activeShift && activeShift.inTime >= monStart) {
         const loc = activeShift.location || 'Unassigned';
-        const ms = Math.max(0, Date.now() - activeShift.inTime);
+        const ms = roundTo15Minutes(Math.max(0, Date.now() - activeShift.inTime));
         locMap[loc] = (locMap[loc] || 0) + ms;
         totalMs += ms;
       }
@@ -1249,13 +1182,13 @@
       weekShifts.forEach(s => {
         const d = new Date(s.inTimestamp).getDay();
         const idx = (d === 0) ? 6 : d - 1;
-        dayMs[idx] += (s.outTimestamp - s.inTimestamp);
+        dayMs[idx] += roundTo15Minutes(s.outTimestamp - s.inTimestamp);
       });
 
       if (includeActive && activeShift && activeShift.inTime >= monStart) {
         const d = new Date(activeShift.inTime).getDay();
         const idx = (d === 0) ? 6 : d - 1;
-        dayMs[idx] += Math.max(0, Date.now() - activeShift.inTime);
+        dayMs[idx] += roundTo15Minutes(Math.max(0, Date.now() - activeShift.inTime));
       }
 
       dayContainer.innerHTML = days.map((dayName, i) => {
@@ -1306,7 +1239,8 @@
       s.in = formatTime12(parsedIn);
       s.out = formatTime12(parsedOut);
 
-      const diff = s.outTimestamp - s.inTimestamp;
+      const rawDiff = s.outTimestamp - s.inTimestamp;
+      const diff = roundTo15Minutes(rawDiff);
       s.duration = formatTime(diff);
       s.hoursDecimal = (diff / (1000 * 60 * 60)).toFixed(2);
 
@@ -1348,7 +1282,11 @@
       let csv = "Date,Location,Clock In,Clock Out,Duration,Decimal Hours,Notes\n";
       rows.forEach(s => {
         const entryDate = getFormattedEntryDate(s);
-        csv += `"${entryDate}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${s.duration}","${s.hoursDecimal || ''}","${(s.note || '').replace(/"/g, '""')}"\n`;
+        const rawDiff = s.outTimestamp - s.inTimestamp;
+        const roundedDiff = roundTo15Minutes(rawDiff);
+        const decHours = (roundedDiff / (1000 * 60 * 60)).toFixed(2);
+
+        csv += `"${entryDate}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${formatTime(roundedDiff)}","${decHours}","${(s.note || '').replace(/"/g, '""')}"\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv' });
