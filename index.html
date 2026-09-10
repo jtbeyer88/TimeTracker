@@ -203,6 +203,22 @@
       justify-content: space-between;
       align-items: center;
     }
+    .btn-add-shift {
+      background: var(--primary);
+      border: none;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .btn-add-shift:active { opacity: 0.85; }
+
     .log-item {
       background: var(--card-bg);
       border-radius: 8px;
@@ -362,6 +378,7 @@
     <div id="tabHistory" class="tab-content">
       <div class="section-title">
         <span>Shift History</span>
+        <button class="btn-add-shift" onclick="manuallyAddShift()" title="Add Shift">+</button>
       </div>
       <div id="shiftLogs"></div>
     </div>
@@ -602,6 +619,27 @@
       return dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     }
 
+    function formatDateInputPrompt(dateObj) {
+      return `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+    }
+
+    function parseCustomDate(inputStr, fallbackObj) {
+      if (!inputStr) return fallbackObj;
+      const s = inputStr.trim();
+      if (s.includes('/')) {
+        const parts = s.split('/');
+        if (parts.length >= 2) {
+          const m = parseInt(parts[0], 10) - 1;
+          const d = parseInt(parts[1], 10);
+          const y = parts.length === 3 ? parseInt(parts[2], 10) : fallbackObj.getFullYear();
+          const parsed = new Date(y, m, d);
+          if (!isNaN(parsed.getTime())) return parsed;
+        }
+      }
+      const parsed = new Date(s);
+      return isNaN(parsed.getTime()) ? fallbackObj : parsed;
+    }
+
     function getFormattedEntryDate(shift) {
       if (shift.inTimestamp) {
         return formatDayDate(new Date(shift.inTimestamp));
@@ -629,7 +667,6 @@
       return dateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
-    // Flexible time parser: handles 0917, 2117, 917a, 917p, 9:17am, 130p, etc.
     function parseTime12Input(rawInput, baseDateObj) {
       if (!rawInput) return null;
       let s = rawInput.trim().toLowerCase().replace(/\s+/g, '');
@@ -666,7 +703,6 @@
         return null;
       }
 
-      // Convert or validate AM/PM and 24-hr values
       if (ampm) {
         if (hours < 1 || hours > 12) return null;
         if (ampm === 'pm' && hours < 12) hours += 12;
@@ -936,6 +972,54 @@
       renderSummary();
     }
 
+    function manuallyAddShift() {
+      const today = new Date();
+      const datePrompt = prompt("Shift Date (e.g. 9/10/2026 or Thursday, September 10):", formatDateInputPrompt(today));
+      if (datePrompt === null) return;
+      const baseDate = parseCustomDate(datePrompt, today);
+
+      const inPrompt = prompt("Clock In time (e.g. 0917, 917a, 2117, 9:17 am):");
+      if (inPrompt === null) return;
+      const parsedIn = parseTime12Input(inPrompt, baseDate);
+      if (!parsedIn) return alert("Invalid Clock In time format.");
+
+      const outPrompt = prompt("Clock Out time (e.g. 1700, 500p, 5:00 pm):");
+      if (outPrompt === null) return;
+      let parsedOut = parseTime12Input(outPrompt, baseDate);
+      if (!parsedOut) return alert("Invalid Clock Out time format.");
+
+      if (parsedOut.getTime() < parsedIn.getTime()) {
+        parsedOut.setDate(parsedOut.getDate() + 1);
+      }
+
+      let defaultLoc = savedLocations.length > 0 ? savedLocations[0] : "";
+      const locPrompt = prompt("Location/Site name:", defaultLoc);
+      if (locPrompt === null) return;
+
+      const notePrompt = prompt("Shift Notes (optional):", "");
+      if (notePrompt === null) return;
+
+      const diff = parsedOut.getTime() - parsedIn.getTime();
+      const entry = {
+        id: Date.now().toString(),
+        inTimestamp: parsedIn.getTime(),
+        outTimestamp: parsedOut.getTime(),
+        date: formatDayDate(parsedIn),
+        in: formatTime12(parsedIn),
+        out: formatTime12(parsedOut),
+        duration: formatTime(diff),
+        hoursDecimal: (diff / (1000 * 60 * 60)).toFixed(2),
+        location: locPrompt.trim(),
+        note: notePrompt.trim()
+      };
+
+      shiftHistory.push(entry);
+      localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
+      renderHistory();
+      renderSummary();
+      calculateWeekHours();
+    }
+
     function renderHistory() {
       const container = document.getElementById('shiftLogs');
       if (!container) return;
@@ -946,7 +1030,6 @@
 
       const sortedShifts = [...shiftHistory].sort((a, b) => a.inTimestamp - b.inTimestamp);
 
-      // Determine today's boundaries for highlighting
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const endOfToday = new Date();
@@ -959,8 +1042,6 @@
           : formatStandardDuration(diffMs);
 
         const displayDate = getFormattedEntryDate(shift);
-
-        // Check if shift falls within today
         const isToday = shift.inTimestamp >= startOfToday.getTime() && shift.inTimestamp <= endOfToday.getTime();
         const todayClass = isToday ? ' log-today' : '';
 
@@ -1059,17 +1140,23 @@
       const s = shiftHistory.find(item => item.id === id);
       if (!s) return;
 
+      const currentBaseDate = s.inTimestamp ? new Date(s.inTimestamp) : new Date();
+
+      const datePrompt = prompt("Shift Date (e.g. 9/10/2026 or Thursday, September 10):", formatDateInputPrompt(currentBaseDate));
+      if (datePrompt === null) return;
+      const baseDate = parseCustomDate(datePrompt, currentBaseDate);
+
       const inDate = new Date(s.inTimestamp);
       const outDate = new Date(s.outTimestamp);
 
       const inPrompt = prompt("Clock In time (e.g. 0917, 917a, 2117, 9:17 AM):", formatTime12(inDate));
       if (inPrompt === null) return;
-      const parsedIn = parseTime12Input(inPrompt, inDate);
+      const parsedIn = parseTime12Input(inPrompt, baseDate);
       if (!parsedIn) return alert("Invalid In-Time format. Examples: 0917, 917a, 2117, 9:17 am");
 
       const outPrompt = prompt("Clock Out time (e.g. 1700, 500p, 5:00 PM):", formatTime12(outDate));
       if (outPrompt === null) return;
-      let parsedOut = parseTime12Input(outPrompt, outDate);
+      let parsedOut = parseTime12Input(outPrompt, baseDate);
       if (!parsedOut) return alert("Invalid Out-Time format. Examples: 1700, 500p, 5:00 pm");
 
       if (parsedOut.getTime() < parsedIn.getTime()) {
