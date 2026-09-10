@@ -1,7 +1,8 @@
 {
   "name": "Time Tracker",
   "short_name": "TimeTracker",
-  "start_url": "./index.html",
+  "start_url": "https://jtbeyer88.github.io/TimeTracker/",
+  "scope": "https://jtbeyer88.github.io/TimeTracker/",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#121212",
