@@ -607,14 +607,16 @@
       }
     }
 
-    function roundTo15Minutes(ms) {
-      const ms15 = 15 * 60 * 1000;
-      return Math.round(ms / ms15) * ms15;
+    // Rounds milliseconds to clean 10-minute intervals
+    function roundTo10Minutes(ms) {
+      const ms10 = 10 * 60 * 1000;
+      return Math.round(ms / ms10) * ms10;
     }
 
-    function roundUpTo15(timestamp) {
-      const ms15 = 15 * 60 * 1000;
-      return Math.ceil(timestamp / ms15) * ms15;
+    // Rounds timestamp up to the next 10-minute increment
+    function roundUpTo10(timestamp) {
+      const ms10 = 10 * 60 * 1000;
+      return Math.ceil(timestamp / ms10) * ms10;
     }
 
     function formatTime(ms) {
@@ -628,7 +630,7 @@
 
     function formatStandardDuration(ms) {
       if (ms < 0) ms = 0;
-      const roundedMs = roundTo15Minutes(ms);
+      const roundedMs = roundTo10Minutes(ms);
       const totalSec = Math.floor(roundedMs / 1000);
       const hrs = Math.floor(totalSec / 3600);
       const mins = Math.floor((totalSec % 3600) / 60);
@@ -738,7 +740,7 @@
       const d = new Date(baseDateObj);
       d.setHours(hours, mins, 0, 0);
 
-      const roundedMs = roundUpTo15(d.getTime());
+      const roundedMs = roundUpTo10(d.getTime());
       return new Date(roundedMs);
     }
 
@@ -854,13 +856,13 @@
       shiftHistory.forEach(s => {
         if (s.inTimestamp >= monStart.getTime() && s.inTimestamp <= sunEnd.getTime()) {
           const shiftDuration = s.outTimestamp - s.inTimestamp;
-          totalMs += roundTo15Minutes(shiftDuration);
+          totalMs += roundTo10Minutes(shiftDuration);
         }
       });
 
       if (activeShift) {
         const rawLiveMs = Math.max(0, Date.now() - (activeShift.rawStart || activeShift.inTime));
-        totalMs += roundTo15Minutes(rawLiveMs);
+        totalMs += roundTo10Minutes(rawLiveMs);
       }
 
       const val = appSettings.showDecimal ? `${(totalMs / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(totalMs);
@@ -947,7 +949,6 @@
     function startTimer() {
       if (interval) clearInterval(interval);
       if (activeShift) {
-        // Use raw punch moment for the live timer display
         const startTime = activeShift.rawStart || activeShift.inTime;
         interval = setInterval(() => {
           const diff = Math.max(0, Date.now() - startTime);
@@ -990,7 +991,7 @@
         }
         activeShift = {
           rawStart: now,
-          inTime: roundUpTo15(now),
+          inTime: roundUpTo10(now),
           note: notesField.value.trim(),
           location: locSelect.value
         };
@@ -1002,13 +1003,13 @@
           if (!confirm("Are you sure you want to Clock Out?")) return;
         }
 
-        let outTime = roundUpTo15(now);
+        let outTime = roundUpTo10(now);
         if (outTime < activeShift.inTime) {
           outTime = activeShift.inTime;
         }
 
         const rawDiff = Math.max(0, outTime - activeShift.inTime);
-        const totalDuration = roundTo15Minutes(rawDiff);
+        const totalDuration = roundTo10Minutes(rawDiff);
         const inDate = new Date(activeShift.inTime);
 
         const entry = {
@@ -1063,7 +1064,7 @@
       if (notePrompt === null) return;
 
       const rawDiff = parsedOut.getTime() - parsedIn.getTime();
-      const roundedDiff = roundTo15Minutes(rawDiff);
+      const roundedDiff = roundTo10Minutes(rawDiff);
 
       const entry = {
         id: Date.now().toString(),
@@ -1102,7 +1103,7 @@
 
       container.innerHTML = sortedShifts.map(shift => {
         const rawDiff = (shift.outTimestamp && shift.inTimestamp) ? (shift.outTimestamp - shift.inTimestamp) : 0;
-        const diffMs = roundTo15Minutes(rawDiff);
+        const diffMs = roundTo10Minutes(rawDiff);
 
         const timeDisplay = appSettings.showDecimal 
           ? `${(diffMs / (1000 * 60 * 60)).toFixed(2)} hrs` 
@@ -1155,7 +1156,7 @@
       let totalMs = 0;
       weekShifts.forEach(s => {
         const loc = s.location || 'Unassigned';
-        const ms = roundTo15Minutes(s.outTimestamp - s.inTimestamp);
+        const ms = roundTo10Minutes(s.outTimestamp - s.inTimestamp);
         locMap[loc] = (locMap[loc] || 0) + ms;
         totalMs += ms;
       });
@@ -1163,7 +1164,7 @@
       if (includeActive && activeShift) {
         const rawLiveMs = Math.max(0, Date.now() - (activeShift.rawStart || activeShift.inTime));
         const loc = activeShift.location || 'Unassigned';
-        const ms = roundTo15Minutes(rawLiveMs);
+        const ms = roundTo10Minutes(rawLiveMs);
         locMap[loc] = (locMap[loc] || 0) + ms;
         totalMs += ms;
       }
@@ -1188,14 +1189,14 @@
       weekShifts.forEach(s => {
         const d = new Date(s.inTimestamp).getDay();
         const idx = (d === 0) ? 6 : d - 1;
-        dayMs[idx] += roundTo15Minutes(s.outTimestamp - s.inTimestamp);
+        dayMs[idx] += roundTo10Minutes(s.outTimestamp - s.inTimestamp);
       });
 
       if (includeActive && activeShift) {
         const d = new Date(activeShift.inTime).getDay();
         const idx = (d === 0) ? 6 : d - 1;
         const rawLiveMs = Math.max(0, Date.now() - (activeShift.rawStart || activeShift.inTime));
-        dayMs[idx] += roundTo15Minutes(rawLiveMs);
+        dayMs[idx] += roundTo10Minutes(rawLiveMs);
       }
 
       dayContainer.innerHTML = days.map((dayName, i) => {
@@ -1247,7 +1248,7 @@
       s.out = formatTime12(parsedOut);
 
       const rawDiff = s.outTimestamp - s.inTimestamp;
-      const diff = roundTo15Minutes(rawDiff);
+      const diff = roundTo10Minutes(rawDiff);
       s.duration = formatTime(diff);
       s.hoursDecimal = (diff / (1000 * 60 * 60)).toFixed(2);
 
@@ -1290,7 +1291,7 @@
       rows.forEach(s => {
         const entryDate = getFormattedEntryDate(s);
         const rawDiff = s.outTimestamp - s.inTimestamp;
-        const roundedDiff = roundTo15Minutes(rawDiff);
+        const roundedDiff = roundTo10Minutes(rawDiff);
         const decHours = (roundedDiff / (1000 * 60 * 60)).toFixed(2);
 
         csv += `"${entryDate}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${formatTime(roundedDiff)}","${decHours}","${(s.note || '').replace(/"/g, '""')}"\n`;
