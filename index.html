@@ -607,7 +607,6 @@
       }
     }
 
-    // Rounds milliseconds to clean 15-minute intervals
     function roundTo15Minutes(ms) {
       const ms15 = 15 * 60 * 1000;
       return Math.round(ms / ms15) * ms15;
@@ -860,7 +859,8 @@
       });
 
       if (activeShift) {
-        totalMs += roundTo15Minutes(Math.max(0, Date.now() - activeShift.inTime));
+        const rawLiveMs = Math.max(0, Date.now() - (activeShift.rawStart || activeShift.inTime));
+        totalMs += roundTo15Minutes(rawLiveMs);
       }
 
       const val = appSettings.showDecimal ? `${(totalMs / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(totalMs);
@@ -947,8 +947,10 @@
     function startTimer() {
       if (interval) clearInterval(interval);
       if (activeShift) {
+        // Use raw punch moment for the live timer display
+        const startTime = activeShift.rawStart || activeShift.inTime;
         interval = setInterval(() => {
-          const diff = Math.max(0, Date.now() - activeShift.inTime);
+          const diff = Math.max(0, Date.now() - startTime);
           const dur = formatTime(diff);
           document.getElementById('timerDisplay').innerText = dur;
           calculateWeekHours();
@@ -970,9 +972,11 @@
         return;
       }
       activeShift.inTime = newDate.getTime();
+      activeShift.rawStart = newDate.getTime();
       reminderFired = false;
       localStorage.setItem('activeShift', JSON.stringify(activeShift));
       updateUI();
+      startTimer();
     }
 
     async function handlePunch() {
@@ -985,6 +989,7 @@
           await Notification.requestPermission();
         }
         activeShift = {
+          rawStart: now,
           inTime: roundUpTo15(now),
           note: notesField.value.trim(),
           location: locSelect.value
@@ -1155,9 +1160,10 @@
         totalMs += ms;
       });
 
-      if (includeActive && activeShift && activeShift.inTime >= monStart) {
+      if (includeActive && activeShift) {
+        const rawLiveMs = Math.max(0, Date.now() - (activeShift.rawStart || activeShift.inTime));
         const loc = activeShift.location || 'Unassigned';
-        const ms = roundTo15Minutes(Math.max(0, Date.now() - activeShift.inTime));
+        const ms = roundTo15Minutes(rawLiveMs);
         locMap[loc] = (locMap[loc] || 0) + ms;
         totalMs += ms;
       }
@@ -1185,10 +1191,11 @@
         dayMs[idx] += roundTo15Minutes(s.outTimestamp - s.inTimestamp);
       });
 
-      if (includeActive && activeShift && activeShift.inTime >= monStart) {
+      if (includeActive && activeShift) {
         const d = new Date(activeShift.inTime).getDay();
         const idx = (d === 0) ? 6 : d - 1;
-        dayMs[idx] += roundTo15Minutes(Math.max(0, Date.now() - activeShift.inTime));
+        const rawLiveMs = Math.max(0, Date.now() - (activeShift.rawStart || activeShift.inTime));
+        dayMs[idx] += roundTo15Minutes(rawLiveMs);
       }
 
       dayContainer.innerHTML = days.map((dayName, i) => {
