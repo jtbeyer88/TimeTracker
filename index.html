@@ -257,6 +257,13 @@
       font-size: 0.9rem;
     }
     .breakdown-row:last-child { border-bottom: none; }
+    .breakdown-row.total-row {
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+      padding-top: 10px;
+      font-weight: 700;
+      color: var(--text);
+    }
     .btn-action-wide {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -838,7 +845,7 @@
             // Automatic upload to Google Drive
             const prevMonDate = new Date(lastArchivedMon);
             const prevSunDate = new Date(lastArchivedMon + (6 * 24 * 60 * 60 * 1000));
-            const fname = `Work_Week_${prevMonDate.toISOString().slice(0,10)}_to_${prevSunDate.toISOString().slice(0,10)}.csv`;
+            const fname = `Work_Week_${prevMonDate.toISOString().slice(0,10)}_to_${prevSunDate.toISOString().slice(0,10)}`;
             const csvData = generateCSVString(pastWeekShifts);
             uploadCSVToDrive(fname, csvData);
           }
@@ -860,10 +867,10 @@
 
       const prevMonDate = new Date(prevMonStart);
       const prevSunDate = new Date(prevMonStart + (6 * 24 * 60 * 60 * 1000));
-      const fname = `Work_Week_${prevMonDate.toISOString().slice(0,10)}_to_${prevSunDate.toISOString().slice(0,10)}.csv`;
+      const fname = `Work_Week_${prevMonDate.toISOString().slice(0,10)}_to_${prevSunDate.toISOString().slice(0,10)}`;
       const csvData = generateCSVString(prevShifts);
 
-      alert("Sending previous week's report to Google Drive...");
+      alert("Sending previous week's spreadsheet to Google Drive...");
       await uploadCSVToDrive(fname, csvData);
       alert("Report sent! Check your Google Drive folder.");
     }
@@ -1275,11 +1282,21 @@
         dayMs[idx] += roundTo10Minutes(rawLiveMs);
       }
 
-      dayContainer.innerHTML = days.map((dayName, i) => {
+      let dailyHtml = days.map((dayName, i) => {
         const val = appSettings.showDecimal ? `${(dayMs[i] / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(dayMs[i]);
         const style = dayMs[i] > 0 ? "font-weight: 600; color: var(--primary);" : "color: var(--subtext);";
         return `<div class="breakdown-row"><span>${dayName}</span><span style="${style}">${val}</span></div>`;
       }).join('');
+
+      // Running Total row placed under Sunday
+      dailyHtml += `
+        <div class="breakdown-row total-row">
+          <span>Total Week Hours</span>
+          <span style="color: var(--primary); font-weight: 700;">${totalVal}</span>
+        </div>
+      `;
+
+      dayContainer.innerHTML = dailyHtml;
     }
 
     function editShift(id) {
