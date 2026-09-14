@@ -396,7 +396,6 @@
     <div id="tabSummary" class="tab-content">
       <div class="section-title">
         <span>Current Week</span>
-        <span id="summaryCurrentWeekTotal" style="color: var(--primary); font-size: 1rem;">0.00 hrs</span>
       </div>
 
       <div class="breakdown-card">
@@ -412,7 +411,6 @@
       <!-- PREVIOUS WEEK SECTION -->
       <div class="section-title" style="margin-top: 24px;">
         <span>Previous Week</span>
-        <span id="summaryPrevWeekTotal" style="color: var(--subtext); font-size: 1rem;">0.00 hrs</span>
       </div>
 
       <div class="breakdown-card">
@@ -948,8 +946,6 @@
 
       const val = appSettings.showDecimal ? `${(totalMs / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(totalMs);
       document.getElementById('weekHoursDisplay').innerText = val;
-      const summaryTotal = document.getElementById('summaryCurrentWeekTotal');
-      if (summaryTotal) summaryTotal.innerText = val;
     }
 
     async function checkFourHourReminder(diffMs) {
@@ -1228,11 +1224,11 @@
 
       const allShifts = getAllShiftsPool();
 
-      buildWeekBreakdown(allShifts, currentMonStart, currentSunEnd, true, currentLocContainer, currentDayContainer, 'summaryCurrentWeekTotal');
-      buildWeekBreakdown(allShifts, prevMonStart, prevSunEnd, false, prevLocContainer, prevDayContainer, 'summaryPrevWeekTotal');
+      buildWeekBreakdown(allShifts, currentMonStart, currentSunEnd, true, currentLocContainer, currentDayContainer);
+      buildWeekBreakdown(allShifts, prevMonStart, prevSunEnd, false, prevLocContainer, prevDayContainer);
     }
 
-    function buildWeekBreakdown(sourceShifts, monStart, sunEnd, includeActive, locContainer, dayContainer, totalElementId) {
+    function buildWeekBreakdown(sourceShifts, monStart, sunEnd, includeActive, locContainer, dayContainer) {
       const weekShifts = sourceShifts.filter(s => s.inTimestamp >= monStart && s.inTimestamp <= sunEnd);
 
       const locMap = {};
@@ -1253,8 +1249,6 @@
       }
 
       const totalVal = appSettings.showDecimal ? `${(totalMs / (1000 * 60 * 60)).toFixed(2)} hrs` : formatStandardDuration(totalMs);
-      const totalEl = document.getElementById(totalElementId);
-      if (totalEl) totalEl.innerText = totalVal;
 
       const locKeys = Object.keys(locMap);
       if (locKeys.length === 0) {
@@ -1288,7 +1282,6 @@
         return `<div class="breakdown-row"><span>${dayName}</span><span style="${style}">${val}</span></div>`;
       }).join('');
 
-      // Running Total row placed under Sunday
       dailyHtml += `
         <div class="breakdown-row total-row">
           <span>Total Week Hours</span>
