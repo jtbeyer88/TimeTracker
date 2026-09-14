@@ -450,6 +450,10 @@
         <button class="btn-action-wide" onclick="exportCSV('current')">Export Current Week (CSV)</button>
         <button class="btn-action-wide" onclick="exportCSV('prev')">Export Previous Week (CSV)</button>
         <button class="btn-action-wide" onclick="exportCSV('all')">Export Full History (CSV)</button>
+        
+        <!-- RECOVERY BUTTON: Direct extraction of archived shifts from phone vault -->
+        <button class="btn-action-wide" style="border-color: #2196f3; color: #2196f3;" onclick="exportArchivedWeeks()">📥 Download Archived Weeks (Last Week)</button>
+        
         <button class="btn-action-wide" style="border-color: #552222; color: #ff8888;" onclick="archiveAndClear()">Archive & Clear History</button>
       </div>
 
@@ -607,13 +611,11 @@
       }
     }
 
-    // Rounds milliseconds to clean 10-minute intervals
     function roundTo10Minutes(ms) {
       const ms10 = 10 * 60 * 1000;
       return Math.round(ms / ms10) * ms10;
     }
 
-    // Rounds timestamp up to the next 10-minute increment
     function roundUpTo10(timestamp) {
       const ms10 = 10 * 60 * 1000;
       return Math.ceil(timestamp / ms10) * ms10;
@@ -771,6 +773,7 @@
       return mon;
     }
 
+    // Preservation archive: snapshots past weeks without erasing them from shiftHistory
     function checkSundayMidnightArchive() {
       const now = new Date();
       const currentMonStart = getMondayStart(now).getTime();
@@ -780,18 +783,32 @@
         const pastWeekShifts = shiftHistory.filter(s => s.inTimestamp < currentMonStart);
         if (pastWeekShifts.length > 0) {
           let archivedWeeks = JSON.parse(localStorage.getItem('archivedWeeks') || '[]');
-          archivedWeeks.push({
-            archivedAt: new Date().toISOString(),
-            weekStart: lastArchivedMon,
-            shifts: pastWeekShifts
-          });
-          localStorage.setItem('archivedWeeks', JSON.stringify(archivedWeeks));
-
-          shiftHistory = shiftHistory.filter(s => s.inTimestamp >= currentMonStart);
-          localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
+          if (!archivedWeeks.some(w => w.weekStart === lastArchivedMon)) {
+            archivedWeeks.push({
+              archivedAt: new Date().toISOString(),
+              weekStart: lastArchivedMon,
+              shifts: pastWeekShifts
+            });
+            localStorage.setItem('archivedWeeks', JSON.stringify(archivedWeeks));
+          }
         }
       }
       localStorage.setItem('lastArchivedMon', currentMonStart.toString());
+    }
+
+    function getAllShiftsPool() {
+      let pool = [...shiftHistory];
+      const archivedWeeks = JSON.parse(localStorage.getItem('archivedWeeks') || '[]');
+      archivedWeeks.forEach(week => {
+        if (Array.isArray(week.shifts)) {
+          week.shifts.forEach(s => {
+            if (!pool.some(item => item.id === s.id)) {
+              pool.push(s);
+            }
+          });
+        }
+      });
+      return pool;
     }
 
     function initLocations() {
@@ -1024,7 +1041,7 @@
           location: locSelect.value || activeShift.location || '',
           note: notesField.value.trim()
         };
-        shiftHistory.push(entry);
+        shiftHistory.unshift(entry);
         localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
         localStorage.removeItem('activeShift');
         activeShift = null;
@@ -1145,12 +1162,14 @@
       const prevMonStart = currentMonStart - (7 * 24 * 60 * 60 * 1000);
       const prevSunEnd = currentMonStart - 1;
 
-      buildWeekBreakdown(currentMonStart, currentSunEnd, true, currentLocContainer, currentDayContainer, 'summaryCurrentWeekTotal');
-      buildWeekBreakdown(prevMonStart, prevSunEnd, false, prevLocContainer, prevDayContainer, 'summaryPrevWeekTotal');
+      const allShifts = getAllShiftsPool();
+
+      buildWeekBreakdown(allShifts, currentMonStart, currentSunEnd, true, currentLocContainer, currentDayContainer, 'summaryCurrentWeekTotal');
+      buildWeekBreakdown(allShifts, prevMonStart, prevSunEnd, false, prevLocContainer, prevDayContainer, 'summaryPrevWeekTotal');
     }
 
-    function buildWeekBreakdown(monStart, sunEnd, includeActive, locContainer, dayContainer, totalElementId) {
-      const weekShifts = shiftHistory.filter(s => s.inTimestamp >= monStart && s.inTimestamp <= sunEnd);
+    function buildWeekBreakdown(sourceShifts, monStart, sunEnd, includeActive, locContainer, dayContainer, totalElementId) {
+      const weekShifts = sourceShifts.filter(s => s.inTimestamp >= monStart && s.inTimestamp <= sunEnd);
 
       const locMap = {};
       let totalMs = 0;
@@ -1280,7 +1299,8 @@
         if (rows.length === 0) return alert("No shifts logged for current week yet.");
       } else if (scope === 'prev') {
         const prevMonStart = currentMonStart - (7 * 24 * 60 * 60 * 1000);
-        rows = shiftHistory.filter(s => s.inTimestamp >= prevMonStart && s.inTimestamp < currentMonStart);
+        const allShifts = getAllShiftsPool();
+        rows = allShifts.filter(s => s.inTimestamp >= prevMonStart && s.inTimestamp < currentMonStart);
         filename = "previous_week_shifts";
         if (rows.length === 0) return alert("No shifts logged for previous week.");
       }
@@ -1305,6 +1325,44 @@
       a.click();
     }
 
+    // Direct extraction of archived weeks from local storage
+    function exportArchivedWeeks() {
+      const archives = JSON.parse(localStorage.getItem('archivedWeeks') || '[]');
+      if (archives.length === 0) {
+        alert("No archived weeks found in local storage on this device.");
+        return;
+      }
+
+      let allArchivedShifts = [];
+      archives.forEach(week => {
+        if (Array.isArray(week.shifts)) {
+          allArchivedShifts.push(...week.shifts);
+        }
+      });
+
+      if (allArchivedShifts.length === 0) {
+        alert("Archive vault is empty.");
+        return;
+      }
+
+      let csv = "Date,Location,Clock In,Clock Out,Duration,Decimal Hours,Notes\n";
+      allArchivedShifts.forEach(s => {
+        const entryDate = getFormattedEntryDate(s);
+        const rawDiff = s.outTimestamp - s.inTimestamp;
+        const roundedDiff = roundTo10Minutes(rawDiff);
+        const decHours = (roundedDiff / (1000 * 60 * 60)).toFixed(2);
+
+        csv += `"${entryDate}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${formatTime(roundedDiff)}","${decHours}","${(s.note || '').replace(/"/g, '""')}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `archived_shifts_${new Date().toISOString().slice(0,10)}.csv`);
+      a.click();
+    }
+
     function archiveAndClear() {
       if (shiftHistory.length === 0) return alert("Shift history is already empty.");
       const answer = confirm("This will download a full CSV backup and clear your shift history from this device. Proceed?");
@@ -1312,6 +1370,7 @@
         exportCSV('all');
         shiftHistory = [];
         localStorage.removeItem('shiftHistory');
+        updateUI();
         renderHistory();
         renderSummary();
         calculateWeekHours();
