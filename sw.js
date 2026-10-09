@@ -1,4 +1,4 @@
-// Version 2.1 - Tabs Reordered
+// Version 2.2 - Task Edit option added
 self.addEventListener('fetch', function(event) {
   event.respondWith(fetch(event.request));
 });
