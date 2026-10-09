@@ -418,8 +418,30 @@
       <button class="btn-icon" onclick="openSettings()" title="Settings">⚙️</button>
     </div>
 
-    <!-- TAB 1: CLOCK -->
-    <div id="tabPunch" class="tab-content active">
+    <!-- TAB 1: AGENDA (DEFAULT FIRST VIEW) -->
+    <div id="tabAgenda" class="tab-content active">
+      <div class="section-title">
+        <span>Daily Agenda & Schedule</span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-small" onclick="manuallyAddAgendaItem()">+ Add</button>
+          <button class="btn-small" style="color: var(--danger);" onclick="clearAllAgenda()">Clear</button>
+        </div>
+      </div>
+
+      <div class="agenda-mic-box">
+        <button id="recordAgendaBtn" class="btn-mic" onclick="toggleAgendaRecording()">
+          <span>🎙️</span> <span id="recordBtnText">Speak Schedule</span>
+        </button>
+        <div id="speechStatus" style="font-size: 0.8rem; color: var(--subtext); margin-top: 10px;">
+          Tap to dictate (e.g., "At 8am home doing admin. At 10am Waterview Towers meeting.")
+        </div>
+      </div>
+
+      <div id="agendaList"></div>
+    </div>
+
+    <!-- TAB 2: CLOCK -->
+    <div id="tabPunch" class="tab-content">
       <div class="status-card">
         <div class="date-display" id="currentDateDisplay"></div>
         <div class="status-title" id="statusLabel">Status: Clocked Out</div>
@@ -451,35 +473,13 @@
       <button id="toggleBtn" class="btn btn-in" onclick="handlePunch()">Clock In</button>
     </div>
 
-    <!-- TAB 2: SHIFT HISTORY -->
+    <!-- TAB 3: SHIFT HISTORY -->
     <div id="tabHistory" class="tab-content">
       <div class="section-title">
         <span>Shift History</span>
         <button class="btn-add-shift" onclick="manuallyAddShift()" title="Add Shift">+</button>
       </div>
       <div id="shiftLogs"></div>
-    </div>
-
-    <!-- TAB 3: AGENDA / TO-DO (NEW) -->
-    <div id="tabAgenda" class="tab-content">
-      <div class="section-title">
-        <span>Daily Agenda & Schedule</span>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-small" onclick="manuallyAddAgendaItem()">+ Add</button>
-          <button class="btn-small" style="color: var(--danger);" onclick="clearAllAgenda()">Clear</button>
-        </div>
-      </div>
-
-      <div class="agenda-mic-box">
-        <button id="recordAgendaBtn" class="btn-mic" onclick="toggleAgendaRecording()">
-          <span>🎙️</span> <span id="recordBtnText">Speak Schedule</span>
-        </button>
-        <div id="speechStatus" style="font-size: 0.8rem; color: var(--subtext); margin-top: 10px;">
-          Tap to dictate (e.g., "At 8am home doing admin. At 10am Waterview Towers meeting.")
-        </div>
-      </div>
-
-      <div id="agendaList"></div>
     </div>
 
     <!-- TAB 4: SUMMARY -->
@@ -516,19 +516,19 @@
 
   </div>
 
-  <!-- Bottom Navigation -->
+  <!-- Bottom Navigation Ordered: Agenda, Clock, History, Summary -->
   <nav class="bottom-nav">
-    <button class="nav-tab active" onclick="switchTab('tabPunch', this)">
+    <button class="nav-tab active" onclick="switchTab('tabAgenda', this)">
+      <span class="tab-icon">📝</span>
+      <span>Agenda</span>
+    </button>
+    <button class="nav-tab" onclick="switchTab('tabPunch', this)">
       <span class="tab-icon">⏱️</span>
       <span>Clock</span>
     </button>
     <button class="nav-tab" onclick="switchTab('tabHistory', this)">
       <span class="tab-icon">📋</span>
       <span>History</span>
-    </button>
-    <button class="nav-tab" onclick="switchTab('tabAgenda', this)">
-      <span class="tab-icon">📝</span>
-      <span>Agenda</span>
     </button>
     <button class="nav-tab" onclick="switchTab('tabSummary', this)">
       <span class="tab-icon">📊</span>
@@ -1629,14 +1629,12 @@
     function parseAndAppendSchedule(rawText) {
       if (!rawText || !rawText.trim()) return;
 
-      // Regex matches time anchors: "At 8am", "8:00", "1pm", "At 1:30 pm"
       const timeRegex = /(?:(?:at|around)\s+)?(\b\d{1,2}(?::\d{2})?\s*(?:am|pm|a|p)?\b)/gi;
       
       const matches = [];
       let match;
       while ((match = timeRegex.exec(rawText)) !== null) {
         const candidateTime = match[1].trim();
-        // Check if candidate contains a valid time signature (e.g., 8am, 8:00, 1pm)
         if (/(?:am|pm|a|p|:\d{2})/i.test(candidateTime) || /^\d{1,2}$/.test(candidateTime)) {
           matches.push({
             rawMatch: match[0],
@@ -1648,7 +1646,6 @@
       }
 
       if (matches.length === 0) {
-        // Fallback: entire text is a single general item
         dailyAgenda.push({
           id: Date.now().toString(),
           time: "",
@@ -1676,16 +1673,14 @@
         const endIndex = next ? next.index : rawText.length;
         let segment = rawText.substring(startIndex, endIndex).trim();
 
-        // Format Time display cleanly: "8:00" or "1:00"
         let displayTime = current.timeStr.toLowerCase().replace(/\s+/g, '');
         let hours = 0;
         let mins = 0;
-        let ampm = null;
 
-        if (displayTime.endsWith('am')) { ampm = 'am'; displayTime = displayTime.replace('am', ''); }
-        else if (displayTime.endsWith('pm')) { ampm = 'pm'; displayTime = displayTime.replace('pm', ''); }
-        else if (displayTime.endsWith('a')) { ampm = 'am'; displayTime = displayTime.replace('a', ''); }
-        else if (displayTime.endsWith('p')) { ampm = 'pm'; displayTime = displayTime.replace('p', ''); }
+        if (displayTime.endsWith('am')) { displayTime = displayTime.replace('am', ''); }
+        else if (displayTime.endsWith('pm')) { displayTime = displayTime.replace('pm', ''); }
+        else if (displayTime.endsWith('a')) { displayTime = displayTime.replace('a', ''); }
+        else if (displayTime.endsWith('p')) { displayTime = displayTime.replace('p', ''); }
 
         if (displayTime.includes(':')) {
           const parts = displayTime.split(':');
@@ -1699,30 +1694,25 @@
         const formattedMins = String(mins).padStart(2, '0');
         const formattedTimeHeader = `${hours}:${formattedMins}`;
 
-        // Detect Location and Task
         let detectedLocation = "";
         let cleanTask = segment;
 
-        // Clean conversational leading text
         cleanTask = cleanTask.replace(/^(?:,\s*)?(?:i\s+will\s+be|i'll\s+be|i\s+will|i'll|will\s+be|i\s+am)\s+/i, '');
 
         for (const locObj of knownLocations) {
           if (locObj.regex.test(cleanTask)) {
             detectedLocation = locObj.name;
-            // Remove the location mention from task text cleanly
             cleanTask = cleanTask.replace(locObj.regex, '').trim();
             break;
           }
         }
 
-        // Clean up conversational glue words (e.g., "for", "at", "doing", "and go")
         cleanTask = cleanTask
           .replace(/^(?:at|in|for|to)\s+/i, '')
           .replace(/^(?:doing|working\s+on)\s+/i, '')
           .replace(/\s+and\s+go\s+home$/i, '')
           .trim();
 
-        // Capitalize first letter of task
         if (cleanTask.length > 0) {
           cleanTask = cleanTask.charAt(0).toUpperCase() + cleanTask.slice(1);
         }
