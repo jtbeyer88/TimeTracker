@@ -1,4 +1,4 @@
-// Version 2.2 - Agenda Edit Button
+// Version 2.3 - Left Checkbox & 1-Hour Alerts
 self.addEventListener('fetch', function(event) {
   event.respondWith(fetch(event.request));
 });
