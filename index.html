@@ -120,7 +120,7 @@
       background: none; border: none;
       color: var(--subtext);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 3px; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+      gap: 3px; font-size: 0.72rem; font-weight: 600; cursor: pointer;
     }
     .nav-tab .tab-icon { font-size: 1.25rem; }
     .nav-tab.active { color: var(--primary); }
@@ -281,6 +281,74 @@
     }
     .empty-state { text-align: center; color: var(--subtext); font-size: 0.9rem; margin: 30px 0; }
 
+    /* AGENDA / TO-DO STYLES */
+    .agenda-item {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      transition: opacity 0.2s;
+    }
+    .agenda-item.completed {
+      opacity: 0.55;
+      text-decoration: line-through;
+    }
+    .agenda-item.completed .agenda-task {
+      text-decoration: line-through;
+    }
+    .agenda-time {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 2px;
+    }
+    .agenda-location {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--tag-text);
+      margin-bottom: 4px;
+    }
+    .agenda-task {
+      font-size: 0.95rem;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    .agenda-mic-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .btn-mic {
+      background: #e53935;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(229, 57, 53, 0.4);
+    }
+    .btn-mic.recording {
+      animation: pulse 1.2s infinite;
+      background: #c62828;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.7); }
+      70% { transform: scale(1.04); box-shadow: 0 0 0 12px rgba(229, 57, 53, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); }
+    }
+
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -392,7 +460,29 @@
       <div id="shiftLogs"></div>
     </div>
 
-    <!-- TAB 3: SUMMARY -->
+    <!-- TAB 3: AGENDA / TO-DO (NEW) -->
+    <div id="tabAgenda" class="tab-content">
+      <div class="section-title">
+        <span>Daily Agenda & Schedule</span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-small" onclick="manuallyAddAgendaItem()">+ Add</button>
+          <button class="btn-small" style="color: var(--danger);" onclick="clearAllAgenda()">Clear</button>
+        </div>
+      </div>
+
+      <div class="agenda-mic-box">
+        <button id="recordAgendaBtn" class="btn-mic" onclick="toggleAgendaRecording()">
+          <span>🎙️</span> <span id="recordBtnText">Speak Schedule</span>
+        </button>
+        <div id="speechStatus" style="font-size: 0.8rem; color: var(--subtext); margin-top: 10px;">
+          Tap to dictate (e.g., "At 8am home doing admin. At 10am Waterview Towers meeting.")
+        </div>
+      </div>
+
+      <div id="agendaList"></div>
+    </div>
+
+    <!-- TAB 4: SUMMARY -->
     <div id="tabSummary" class="tab-content">
       <div class="section-title">
         <span>Current Week</span>
@@ -435,6 +525,10 @@
     <button class="nav-tab" onclick="switchTab('tabHistory', this)">
       <span class="tab-icon">📋</span>
       <span>History</span>
+    </button>
+    <button class="nav-tab" onclick="switchTab('tabAgenda', this)">
+      <span class="tab-icon">📝</span>
+      <span>Agenda</span>
     </button>
     <button class="nav-tab" onclick="switchTab('tabSummary', this)">
       <span class="tab-icon">📊</span>
@@ -523,7 +617,6 @@
         </label>
       </div>
 
-      <!-- README LINK -->
       <div style="margin-top: 20px;">
         <a href="README.html" class="btn-action-wide" style="border-color: var(--primary); color: var(--primary);">
           📖 View Build History & README
@@ -559,6 +652,7 @@
     let activeShift = JSON.parse(localStorage.getItem('activeShift')) || null;
     let shiftHistory = JSON.parse(localStorage.getItem('shiftHistory')) || [];
     let savedLocations = JSON.parse(localStorage.getItem('savedLocations')) || [];
+    let dailyAgenda = JSON.parse(localStorage.getItem('dailyAgenda')) || [];
     let interval = null;
     let reminderFired = false;
 
@@ -570,6 +664,7 @@
 
       if (tabId === 'tabHistory') renderHistory();
       if (tabId === 'tabSummary') renderSummary();
+      if (tabId === 'tabAgenda') renderAgenda();
     }
 
     function saveSettings() {
@@ -647,7 +742,7 @@
     }
 
     function formatDayDate(dateObj) {
-      return dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      return dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
 
     function parseCustomDate(inputStr, fallbackObj) {
@@ -673,29 +768,6 @@
 
       const parsed = new Date(s);
       return isNaN(parsed.getTime()) ? fallbackObj : parsed;
-    }
-
-    function getFormattedEntryDate(shift) {
-      if (shift.inTimestamp) {
-        return formatDayDate(new Date(shift.inTimestamp));
-      }
-      if (shift.date) {
-        if (shift.date.includes('/')) {
-          const parts = shift.date.split('/');
-          if (parts.length === 3) {
-            const m = parseInt(parts[0], 10) - 1;
-            const d = parseInt(parts[1], 10);
-            const y = parseInt(parts[2], 10);
-            return formatDayDate(new Date(y, m, d));
-          }
-        }
-        const parsed = new Date(shift.date);
-        if (!isNaN(parsed.getTime())) {
-          return formatDayDate(parsed);
-        }
-        return shift.date;
-      }
-      return '';
     }
 
     function formatTime12(dateObj) {
@@ -760,7 +832,7 @@
 
       if (lower === 'pa') return "Palmetto Place";
       if (lower === 'pr') return "Presidential Place";
-      if (lower === 'h') return "Home/Office";
+      if (lower === 'h' || lower === 'home') return "Home/Office";
       if (lower === 't') return "Tower 155";
       if (lower === 'w') return "Waterview Towers";
       if (lower === 'm') return "Mizner Tower";
@@ -780,6 +852,33 @@
       return mon;
     }
 
+    function resolveShiftTimestamp(shift) {
+      if (typeof shift.inTimestamp === 'number' && !isNaN(shift.inTimestamp) && shift.inTimestamp > 0) {
+        return shift.inTimestamp;
+      }
+      if (shift.date) {
+        const base = parseCustomDate(shift.date, new Date());
+        if (shift.in) {
+          const parsed = parseTime12Input(shift.in, base);
+          if (parsed) return parsed.getTime();
+        }
+        return base.getTime();
+      }
+      return 0;
+    }
+
+    function getFormattedEntryDate(shift) {
+      const ms = resolveShiftTimestamp(shift);
+      if (ms > 0) {
+        return formatDayDate(new Date(ms));
+      }
+      if (shift.date) {
+        const parsed = parseCustomDate(shift.date, new Date());
+        return formatDayDate(parsed);
+      }
+      return '';
+    }
+
     function getAllShiftsPool() {
       let pool = [...shiftHistory];
       const archivedWeeks = JSON.parse(localStorage.getItem('archivedWeeks') || '[]');
@@ -797,9 +896,16 @@
 
     function generateCSVString(shiftsArray) {
       let csv = "Date,Location,Clock In,Clock Out,Duration,Decimal Hours,Notes\n";
-      shiftsArray.forEach(s => {
+
+      const sortedShifts = [...shiftsArray].sort((a, b) => {
+        return resolveShiftTimestamp(a) - resolveShiftTimestamp(b);
+      });
+
+      sortedShifts.forEach(s => {
         const entryDate = getFormattedEntryDate(s);
-        const rawDiff = s.outTimestamp - s.inTimestamp;
+        const inMs = resolveShiftTimestamp(s);
+        const outMs = s.outTimestamp || inMs;
+        const rawDiff = outMs > inMs ? (outMs - inMs) : 0;
         const roundedDiff = roundTo10Minutes(rawDiff);
         const decHours = (roundedDiff / (1000 * 60 * 60)).toFixed(2);
         csv += `"${entryDate}","${(s.location || '').replace(/"/g, '""')}","${s.in}","${s.out}","${formatTime(roundedDiff)}","${decHours}","${(s.note || '').replace(/"/g, '""')}"\n`;
@@ -829,7 +935,7 @@
       const lastArchivedMon = parseInt(localStorage.getItem('lastArchivedMon') || '0', 10);
 
       if (lastArchivedMon !== 0 && currentMonStart > lastArchivedMon) {
-        const pastWeekShifts = shiftHistory.filter(s => s.inTimestamp < currentMonStart);
+        const pastWeekShifts = shiftHistory.filter(s => resolveShiftTimestamp(s) < currentMonStart);
         if (pastWeekShifts.length > 0) {
           let archivedWeeks = JSON.parse(localStorage.getItem('archivedWeeks') || '[]');
           if (!archivedWeeks.some(w => w.weekStart === lastArchivedMon)) {
@@ -840,7 +946,6 @@
             });
             localStorage.setItem('archivedWeeks', JSON.stringify(archivedWeeks));
 
-            // Automatic upload to Google Drive
             const prevMonDate = new Date(lastArchivedMon);
             const prevSunDate = new Date(lastArchivedMon + (6 * 24 * 60 * 60 * 1000));
             const fname = `Work_Week_${prevMonDate.toISOString().slice(0,10)}_to_${prevSunDate.toISOString().slice(0,10)}`;
@@ -857,7 +962,10 @@
       const currentMonStart = getMondayStart(now).getTime();
       const prevMonStart = currentMonStart - (7 * 24 * 60 * 60 * 1000);
       const allShifts = getAllShiftsPool();
-      const prevShifts = allShifts.filter(s => s.inTimestamp >= prevMonStart && s.inTimestamp < currentMonStart);
+      const prevShifts = allShifts.filter(s => {
+        const t = resolveShiftTimestamp(s);
+        return t >= prevMonStart && t < currentMonStart;
+      });
 
       if (prevShifts.length === 0) {
         return alert("No shifts found for the previous week to sync.");
@@ -933,8 +1041,9 @@
 
       let totalMs = 0;
       shiftHistory.forEach(s => {
-        if (s.inTimestamp >= monStart.getTime() && s.inTimestamp <= sunEnd.getTime()) {
-          const shiftDuration = s.outTimestamp - s.inTimestamp;
+        const inMs = resolveShiftTimestamp(s);
+        if (inMs >= monStart.getTime() && inMs <= sunEnd.getTime()) {
+          const shiftDuration = s.outTimestamp ? (s.outTimestamp - inMs) : 0;
           totalMs += roundTo10Minutes(shiftDuration);
         }
       });
@@ -1171,7 +1280,7 @@
         return;
       }
 
-      const sortedShifts = [...shiftHistory].sort((a, b) => b.inTimestamp - a.inTimestamp);
+      const sortedShifts = [...shiftHistory].sort((a, b) => resolveShiftTimestamp(b) - resolveShiftTimestamp(a));
 
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -1179,7 +1288,9 @@
       endOfToday.setHours(23, 59, 59, 999);
 
       container.innerHTML = sortedShifts.map(shift => {
-        const rawDiff = (shift.outTimestamp && shift.inTimestamp) ? (shift.outTimestamp - shift.inTimestamp) : 0;
+        const inMs = resolveShiftTimestamp(shift);
+        const outMs = shift.outTimestamp || inMs;
+        const rawDiff = outMs > inMs ? (outMs - inMs) : 0;
         const diffMs = roundTo10Minutes(rawDiff);
 
         const timeDisplay = appSettings.showDecimal 
@@ -1187,7 +1298,7 @@
           : formatStandardDuration(diffMs);
 
         const displayDate = getFormattedEntryDate(shift);
-        const isToday = shift.inTimestamp >= startOfToday.getTime() && shift.inTimestamp <= endOfToday.getTime();
+        const isToday = inMs >= startOfToday.getTime() && inMs <= endOfToday.getTime();
         const todayClass = isToday ? ' log-today' : '';
 
         return `
@@ -1229,13 +1340,18 @@
     }
 
     function buildWeekBreakdown(sourceShifts, monStart, sunEnd, includeActive, locContainer, dayContainer) {
-      const weekShifts = sourceShifts.filter(s => s.inTimestamp >= monStart && s.inTimestamp <= sunEnd);
+      const weekShifts = sourceShifts.filter(s => {
+        const t = resolveShiftTimestamp(s);
+        return t >= monStart && t <= sunEnd;
+      });
 
       const locMap = {};
       let totalMs = 0;
       weekShifts.forEach(s => {
         const loc = s.location || 'Unassigned';
-        const ms = roundTo10Minutes(s.outTimestamp - s.inTimestamp);
+        const inMs = resolveShiftTimestamp(s);
+        const outMs = s.outTimestamp || inMs;
+        const ms = roundTo10Minutes(outMs > inMs ? (outMs - inMs) : 0);
         locMap[loc] = (locMap[loc] || 0) + ms;
         totalMs += ms;
       });
@@ -1264,9 +1380,11 @@
       const dayMs = [0, 0, 0, 0, 0, 0, 0];
 
       weekShifts.forEach(s => {
-        const d = new Date(s.inTimestamp).getDay();
+        const inMs = resolveShiftTimestamp(s);
+        const outMs = s.outTimestamp || inMs;
+        const d = new Date(inMs).getDay();
         const idx = (d === 0) ? 6 : d - 1;
-        dayMs[idx] += roundTo10Minutes(s.outTimestamp - s.inTimestamp);
+        dayMs[idx] += roundTo10Minutes(outMs > inMs ? (outMs - inMs) : 0);
       });
 
       if (includeActive && activeShift) {
@@ -1296,14 +1414,14 @@
       const s = shiftHistory.find(item => item.id === id);
       if (!s) return;
 
-      const currentBaseDate = s.inTimestamp ? new Date(s.inTimestamp) : new Date();
+      const currentBaseDate = new Date(resolveShiftTimestamp(s) || Date.now());
 
       const datePrompt = prompt("Shift Date (Press OK to keep, or edit):", formatDayDate(currentBaseDate));
       if (datePrompt === null) return;
       const baseDate = parseCustomDate(datePrompt, currentBaseDate);
 
-      const inDate = new Date(s.inTimestamp);
-      const outDate = new Date(s.outTimestamp);
+      const inDate = new Date(resolveShiftTimestamp(s) || currentBaseDate.getTime());
+      const outDate = new Date(s.outTimestamp || currentBaseDate.getTime());
 
       const inPrompt = prompt("Clock In time (e.g. 0917, 917a, 2117, 9:17 AM):", formatTime12(inDate));
       if (inPrompt === null) return;
@@ -1361,13 +1479,16 @@
       const currentMonStart = getMondayStart(new Date()).getTime();
 
       if (scope === 'current') {
-        rows = shiftHistory.filter(s => s.inTimestamp >= currentMonStart);
+        rows = shiftHistory.filter(s => resolveShiftTimestamp(s) >= currentMonStart);
         filename = "current_week_shifts";
         if (rows.length === 0) return alert("No shifts logged for current week yet.");
       } else if (scope === 'prev') {
         const prevMonStart = currentMonStart - (7 * 24 * 60 * 60 * 1000);
         const allShifts = getAllShiftsPool();
-        rows = allShifts.filter(s => s.inTimestamp >= prevMonStart && s.inTimestamp < currentMonStart);
+        rows = allShifts.filter(s => {
+          const t = resolveShiftTimestamp(s);
+          return t >= prevMonStart && t < currentMonStart;
+        });
         filename = "previous_week_shifts";
         if (rows.length === 0) return alert("No shifts logged for previous week.");
       }
@@ -1412,17 +1533,286 @@
     }
 
     function archiveAndClear() {
-      if (shiftHistory.length === 0) return alert("Shift history is already empty.");
-      const answer = confirm("This will download a full CSV backup and clear your shift history from this device. Proceed?");
+      const currentMonStart = getMondayStart(new Date()).getTime();
+      const olderShifts = shiftHistory.filter(s => resolveShiftTimestamp(s) < currentMonStart);
+      const currentWeekShifts = shiftHistory.filter(s => resolveShiftTimestamp(s) >= currentMonStart);
+
+      if (olderShifts.length === 0) {
+        return alert("There are no previous weeks' shifts to clear. Your current week's shifts will remain untouched.");
+      }
+
+      const answer = confirm(
+        `This will download a backup of previous weeks (${olderShifts.length} shifts) and remove them from this device.\n\nYour current week's shifts (${currentWeekShifts.length} shifts) will NOT be deleted.\n\nProceed?`
+      );
+
       if (answer) {
-        exportCSV('all');
-        shiftHistory = [];
-        localStorage.removeItem('shiftHistory');
+        const csv = generateCSVString(olderShifts);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `cleared_previous_weeks_backup_${new Date().toISOString().slice(0,10)}.csv`);
+        a.click();
+
+        shiftHistory = currentWeekShifts;
+        localStorage.setItem('shiftHistory', JSON.stringify(shiftHistory));
+
         updateUI();
         renderHistory();
         renderSummary();
         calculateWeekHours();
+
+        alert("Previous weeks have been backed up and cleared. Current week remains active.");
       }
+    }
+
+    /* -------------------------------------------------------------
+       AGENDA / TO-DO FEATURE LOGIC
+    ------------------------------------------------------------- */
+    let recognition = null;
+    let isRecording = false;
+
+    function toggleAgendaRecording() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        return alert("Speech Recognition is not supported by this browser. You can still use the '+ Add' button to type schedule items.");
+      }
+
+      const micBtn = document.getElementById('recordAgendaBtn');
+      const micText = document.getElementById('recordBtnText');
+      const statusText = document.getElementById('speechStatus');
+
+      if (isRecording) {
+        if (recognition) recognition.stop();
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micText.innerText = "Speak Schedule";
+        statusText.innerText = "Stopped listening.";
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = function() {
+        isRecording = true;
+        micBtn.classList.add('recording');
+        micText.innerText = "Listening...";
+        statusText.innerText = "Speak your schedule now (tap button again when done)...";
+      };
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        statusText.innerText = `Recognized: "${transcript}"`;
+        parseAndAppendSchedule(transcript);
+      };
+
+      recognition.onerror = function(event) {
+        console.error("Speech Recognition Error:", event.error);
+        statusText.innerText = `Error: ${event.error}`;
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micText.innerText = "Speak Schedule";
+      };
+
+      recognition.onend = function() {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micText.innerText = "Speak Schedule";
+      };
+
+      recognition.start();
+    }
+
+    function parseAndAppendSchedule(rawText) {
+      if (!rawText || !rawText.trim()) return;
+
+      // Regex matches time anchors: "At 8am", "8:00", "1pm", "At 1:30 pm"
+      const timeRegex = /(?:(?:at|around)\s+)?(\b\d{1,2}(?::\d{2})?\s*(?:am|pm|a|p)?\b)/gi;
+      
+      const matches = [];
+      let match;
+      while ((match = timeRegex.exec(rawText)) !== null) {
+        const candidateTime = match[1].trim();
+        // Check if candidate contains a valid time signature (e.g., 8am, 8:00, 1pm)
+        if (/(?:am|pm|a|p|:\d{2})/i.test(candidateTime) || /^\d{1,2}$/.test(candidateTime)) {
+          matches.push({
+            rawMatch: match[0],
+            timeStr: candidateTime,
+            index: match.index,
+            length: match[0].length
+          });
+        }
+      }
+
+      if (matches.length === 0) {
+        // Fallback: entire text is a single general item
+        dailyAgenda.push({
+          id: Date.now().toString(),
+          time: "",
+          location: "",
+          task: rawText.trim(),
+          completed: false
+        });
+        saveAndRenderAgenda();
+        return;
+      }
+
+      const knownLocations = [
+        { name: "Waterview Towers", regex: /\bwaterview(?:\s+towers?)?\b/i },
+        { name: "Palmetto Place", regex: /\bpalmetto(?:\s+place)?\b/i },
+        { name: "Presidential Place", regex: /\bpresidential(?:\s+place)?\b/i },
+        { name: "Tower 155", regex: /\btower\s*155\b/i },
+        { name: "Mizner Tower", regex: /\bmizner(?:\s+towers?)?\b/i },
+        { name: "Home", regex: /\b(?:at\s+)?home(?:\/office)?\b/i }
+      ];
+
+      for (let i = 0; i < matches.length; i++) {
+        const current = matches[i];
+        const next = matches[i + 1];
+        const startIndex = current.index + current.length;
+        const endIndex = next ? next.index : rawText.length;
+        let segment = rawText.substring(startIndex, endIndex).trim();
+
+        // Format Time display cleanly: "8:00" or "1:00"
+        let displayTime = current.timeStr.toLowerCase().replace(/\s+/g, '');
+        let hours = 0;
+        let mins = 0;
+        let ampm = null;
+
+        if (displayTime.endsWith('am')) { ampm = 'am'; displayTime = displayTime.replace('am', ''); }
+        else if (displayTime.endsWith('pm')) { ampm = 'pm'; displayTime = displayTime.replace('pm', ''); }
+        else if (displayTime.endsWith('a')) { ampm = 'am'; displayTime = displayTime.replace('a', ''); }
+        else if (displayTime.endsWith('p')) { ampm = 'pm'; displayTime = displayTime.replace('p', ''); }
+
+        if (displayTime.includes(':')) {
+          const parts = displayTime.split(':');
+          hours = parseInt(parts[0], 10);
+          mins = parseInt(parts[1], 10);
+        } else {
+          hours = parseInt(displayTime, 10);
+          mins = 0;
+        }
+
+        const formattedMins = String(mins).padStart(2, '0');
+        const formattedTimeHeader = `${hours}:${formattedMins}`;
+
+        // Detect Location and Task
+        let detectedLocation = "";
+        let cleanTask = segment;
+
+        // Clean conversational leading text
+        cleanTask = cleanTask.replace(/^(?:,\s*)?(?:i\s+will\s+be|i'll\s+be|i\s+will|i'll|will\s+be|i\s+am)\s+/i, '');
+
+        for (const locObj of knownLocations) {
+          if (locObj.regex.test(cleanTask)) {
+            detectedLocation = locObj.name;
+            // Remove the location mention from task text cleanly
+            cleanTask = cleanTask.replace(locObj.regex, '').trim();
+            break;
+          }
+        }
+
+        // Clean up conversational glue words (e.g., "for", "at", "doing", "and go")
+        cleanTask = cleanTask
+          .replace(/^(?:at|in|for|to)\s+/i, '')
+          .replace(/^(?:doing|working\s+on)\s+/i, '')
+          .replace(/\s+and\s+go\s+home$/i, '')
+          .trim();
+
+        // Capitalize first letter of task
+        if (cleanTask.length > 0) {
+          cleanTask = cleanTask.charAt(0).toUpperCase() + cleanTask.slice(1);
+        }
+
+        dailyAgenda.push({
+          id: Date.now().toString() + "_" + i,
+          time: formattedTimeHeader,
+          location: detectedLocation,
+          task: cleanTask || "(No task specified)",
+          completed: false
+        });
+      }
+
+      saveAndRenderAgenda();
+    }
+
+    function manuallyAddAgendaItem() {
+      const timeInput = prompt("Time (e.g., 8:00, 10:00, 1:30):", "8:00");
+      if (timeInput === null) return;
+
+      const locInput = prompt("Location (Optional, press OK to skip):", "");
+      if (locInput === null) return;
+
+      const taskInput = prompt("Task / Objective:", "");
+      if (taskInput === null || !taskInput.trim()) return;
+
+      dailyAgenda.push({
+        id: Date.now().toString(),
+        time: timeInput.trim(),
+        location: matchLocationShortcut(locInput.trim()),
+        task: taskInput.trim(),
+        completed: false
+      });
+
+      saveAndRenderAgenda();
+    }
+
+    function toggleAgendaItem(id) {
+      const item = dailyAgenda.find(x => x.id === id);
+      if (item) {
+        item.completed = !item.completed;
+        saveAndRenderAgenda();
+      }
+    }
+
+    function deleteAgendaItem(id) {
+      dailyAgenda = dailyAgenda.filter(x => x.id !== id);
+      saveAndRenderAgenda();
+    }
+
+    function clearAllAgenda() {
+      if (dailyAgenda.length === 0) return alert("Agenda is already empty.");
+      if (confirm("Clear all items from today's schedule?")) {
+        dailyAgenda = [];
+        saveAndRenderAgenda();
+      }
+    }
+
+    function saveAndRenderAgenda() {
+      localStorage.setItem('dailyAgenda', JSON.stringify(dailyAgenda));
+      renderAgenda();
+    }
+
+    function renderAgenda() {
+      const container = document.getElementById('agendaList');
+      if (!container) return;
+
+      if (dailyAgenda.length === 0) {
+        container.innerHTML = `<div class="empty-state">No scheduled items yet.<br>Tap "Speak Schedule" or "+ Add" to build your day.</div>`;
+        return;
+      }
+
+      container.innerHTML = dailyAgenda.map(item => {
+        const completedClass = item.completed ? ' completed' : '';
+        const checkIcon = item.completed ? '✅' : '⚪';
+
+        return `
+          <div class="agenda-item${completedClass}">
+            <div style="flex: 1; padding-right: 12px;">
+              ${item.time ? `<div class="agenda-time">${item.time}</div>` : ''}
+              ${item.location ? `<div class="agenda-location">${item.location}</div>` : ''}
+              <div class="agenda-task">${item.task}</div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 2px;">
+              <button class="action-btn" onclick="toggleAgendaItem('${item.id}')" title="Toggle Done">${checkIcon}</button>
+              <button class="action-btn action-del" onclick="deleteAgendaItem('${item.id}')" title="Delete">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     document.getElementById('shiftNotes').addEventListener('input', (e) => {
@@ -1450,6 +1840,7 @@
     checkSundayMidnightArchive();
     updateUI();
     renderHistory();
+    renderAgenda();
     renderSummary();
     if (activeShift) startTimer();
   </script>
