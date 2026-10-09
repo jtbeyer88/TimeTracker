@@ -1,4 +1,4 @@
-// Version 2.2 - Task Edit option added
+// Version 2.2 - Agenda Edit Button
 self.addEventListener('fetch', function(event) {
   event.respondWith(fetch(event.request));
 });
