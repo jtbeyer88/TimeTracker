@@ -1,4 +1,4 @@
-// Version 2.0 - Agenda Update
+// Version 2.1 - Tabs Reordered
 self.addEventListener('fetch', function(event) {
   event.respondWith(fetch(event.request));
 });
