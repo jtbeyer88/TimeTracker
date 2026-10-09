@@ -1,3 +1,4 @@
+// Version 2.0 - Agenda Update
 self.addEventListener('fetch', function(event) {
   event.respondWith(fetch(event.request));
 });
