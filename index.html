@@ -238,7 +238,7 @@
     .log-tag { display: inline-block; background: var(--tag-bg); color: var(--tag-text); font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; }
     .log-note { font-style: italic; color: var(--note-text); background: var(--note-bg); padding: 6px 10px; border-radius: 4px; font-size: 0.85rem; }
     .log-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 14px; }
-    .action-btn { background: none; border: none; font-size: 0.8rem; cursor: pointer; }
+    .action-btn { background: none; border: none; font-size: 0.95rem; cursor: pointer; padding: 4px 6px; }
     .action-edit { color: var(--accent); }
     .action-del { color: var(--danger); }
 
@@ -289,8 +289,8 @@
       margin-bottom: 10px;
       border: 1px solid var(--border);
       display: flex;
-      justify-content: space-between;
       align-items: flex-start;
+      gap: 12px;
       transition: opacity 0.2s;
     }
     .agenda-item.completed {
@@ -298,6 +298,19 @@
     }
     .agenda-item.completed .agenda-task {
       text-decoration: line-through;
+    }
+    .agenda-check-btn {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      cursor: pointer;
+      margin-top: 2px;
+      padding: 0;
+      line-height: 1;
+    }
+    .agenda-body {
+      flex: 1;
+      min-width: 0;
     }
     .agenda-time {
       font-size: 1.15rem;
@@ -315,6 +328,13 @@
       font-size: 0.95rem;
       color: var(--text);
       white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .agenda-actions {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-top: 2px;
     }
     .agenda-mic-box {
       background: var(--card-bg);
@@ -632,6 +652,7 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(reg => {
         swRegistration = reg;
+        scheduleAgendaNotifications();
       });
       navigator.serviceWorker.addEventListener('message', event => {
         if (event.data && event.data.action === 'trigger_clock_out') {
@@ -654,6 +675,7 @@
     let dailyAgenda = JSON.parse(localStorage.getItem('dailyAgenda')) || [];
     let interval = null;
     let reminderFired = false;
+    let agendaTimers = [];
 
     function switchTab(tabId, el) {
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -1566,12 +1588,88 @@
     }
 
     /* -------------------------------------------------------------
-       AGENDA / TO-DO FEATURE LOGIC
+       AGENDA / TO-DO FEATURE LOGIC WITH 1-HOUR REMINDERS
     ------------------------------------------------------------- */
     let recognition = null;
     let isRecording = false;
 
+    function getEventEpochToday(timeStr) {
+      if (!timeStr) return null;
+      const clean = timeStr.trim().toLowerCase().replace(/\s+/g, '');
+      let hours = 0;
+      let mins = 0;
+      let isPm = clean.endsWith('pm') || clean.endsWith('p');
+      let isAm = clean.endsWith('am') || clean.endsWith('a');
+      const numOnly = clean.replace(/[apm]/g, '');
+
+      if (numOnly.includes(':')) {
+        const parts = numOnly.split(':');
+        hours = parseInt(parts[0], 10);
+        mins = parseInt(parts[1], 10);
+      } else {
+        hours = parseInt(numOnly, 10);
+        mins = 0;
+      }
+
+      if (isNaN(hours)) return null;
+
+      if (isPm && hours < 12) hours += 12;
+      if (isAm && hours === 12) hours = 0;
+      // Default conversational hours between 1 and 6 to PM if unspecified
+      if (!isAm && !isPm && hours >= 1 && hours <= 6) hours += 12;
+
+      const eventDate = new Date();
+      eventDate.setHours(hours, mins, 0, 0);
+      return eventDate.getTime();
+    }
+
+    async function scheduleAgendaNotifications() {
+      agendaTimers.forEach(t => clearTimeout(t));
+      agendaTimers = [];
+
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+      const now = Date.now();
+      const oneHourMs = 60 * 60 * 1000;
+
+      dailyAgenda.forEach(item => {
+        if (item.completed || !item.time) return;
+        const eventTime = getEventEpochToday(item.time);
+        if (!eventTime) return;
+
+        const reminderTime = eventTime - oneHourMs;
+        const delay = reminderTime - now;
+
+        if (delay > 0) {
+          const timerId = setTimeout(async () => {
+            const reg = swRegistration || (navigator.serviceWorker ? await navigator.serviceWorker.ready : null);
+            const title = `Upcoming Task at ${item.time}`;
+            const body = item.location ? `${item.location}: ${item.task}` : item.task;
+            
+            if (reg && reg.showNotification) {
+              reg.showNotification(title, {
+                body: body,
+                tag: `agenda-reminder-${item.id}`,
+                icon: 'https://cdn-icons-png.flaticon.com/512/2972/2972531.png',
+                requireInteraction: true
+              });
+            } else {
+              new Notification(title, { body: body });
+            }
+          }, delay);
+          agendaTimers.push(timerId);
+        }
+      });
+    }
+
+    async function ensureNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+    }
+
     function toggleAgendaRecording() {
+      ensureNotificationPermission();
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         return alert("Speech Recognition is not supported by this browser. You can still use the '+ Add' button to type schedule items.");
@@ -1676,10 +1774,10 @@
         let hours = 0;
         let mins = 0;
 
-        if (displayTime.endsWith('am')) { ampm = 'am'; displayTime = displayTime.replace('am', ''); }
-        else if (displayTime.endsWith('pm')) { ampm = 'pm'; displayTime = displayTime.replace('pm', ''); }
-        else if (displayTime.endsWith('a')) { ampm = 'am'; displayTime = displayTime.replace('a', ''); }
-        else if (displayTime.endsWith('p')) { ampm = 'pm'; displayTime = displayTime.replace('p', ''); }
+        if (displayTime.endsWith('am')) { displayTime = displayTime.replace('am', ''); }
+        else if (displayTime.endsWith('pm')) { displayTime = displayTime.replace('pm', ''); }
+        else if (displayTime.endsWith('a')) { displayTime = displayTime.replace('a', ''); }
+        else if (displayTime.endsWith('p')) { displayTime = displayTime.replace('p', ''); }
 
         if (displayTime.includes(':')) {
           const parts = displayTime.split(':');
@@ -1729,6 +1827,7 @@
     }
 
     function manuallyAddAgendaItem() {
+      ensureNotificationPermission();
       const timeInput = prompt("Time (e.g., 8:00, 10:00, 1:30):", "8:00");
       if (timeInput === null) return;
 
@@ -1793,6 +1892,7 @@
     function saveAndRenderAgenda() {
       localStorage.setItem('dailyAgenda', JSON.stringify(dailyAgenda));
       renderAgenda();
+      scheduleAgendaNotifications();
     }
 
     function renderAgenda() {
@@ -1810,14 +1910,14 @@
 
         return `
           <div class="agenda-item${completedClass}">
-            <div style="flex: 1; padding-right: 10px;">
+            <button class="agenda-check-btn" onclick="toggleAgendaItem('${item.id}')" title="Toggle Done">${checkIcon}</button>
+            <div class="agenda-body">
               ${item.time ? `<div class="agenda-time">${item.time}</div>` : ''}
               ${item.location ? `<div class="agenda-location">${item.location}</div>` : ''}
               <div class="agenda-task">${item.task}</div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
-              <button class="action-btn" onclick="editAgendaItem('${item.id}')" title="Edit Entry">✏️</button>
-              <button class="action-btn" onclick="toggleAgendaItem('${item.id}')" title="Toggle Done">${checkIcon}</button>
+            <div class="agenda-actions">
+              <button class="action-btn action-edit" onclick="editAgendaItem('${item.id}')" title="Edit Entry">✏️</button>
               <button class="action-btn action-del" onclick="deleteAgendaItem('${item.id}')" title="Delete">✕</button>
             </div>
           </div>
